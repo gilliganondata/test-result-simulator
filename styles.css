@@ -1,7 +1,7 @@
 /* Remove the title bar */
 .navbar{
   visibility: hidden;
-}
+} 
 
 body {
   padding-top: 8px;
@@ -31,9 +31,9 @@ text {
 /* Main results output */
 h1 {
   font-family: "adelle-sans",helvetica,arial,sans-serf;
-  font-size: 48px;
+  font-size: 24px;
   font-weight: bold;
-  color: #416fba;
+  color: #0060AF;
   text-align: center;
 }
 

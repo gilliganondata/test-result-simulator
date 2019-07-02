@@ -1,22 +1,17 @@
 ---
-title: "Test Result Simulator"
+title: "A/B Test Result Simulator"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
-    css: styles.css
+#    css: styles.css
     vertical_layout: scroll
     includes:
       after_body: tracking.html
 runtime: shiny
 ---
 
-### A/B Test Simulator
-
-This simulator is designed to illustrate -- through calculations and simulation -- the difference between an _observed_ result in an A/B test and the _actual/true value_ _**(which is completely unknowable, but extremely useful to think about)**_.
-
 ```{r setup}
 library(tidyverse)
-library(scales)
 
 # Specify the base colors for A and B. These get used in various places
 color_a <- "#00A2B1"
@@ -24,66 +19,77 @@ color_b <- "#9A258F"
 
 ```
 
-Row
------------------------------
+Column {.sidebar data-width=400}
+-------------------------------------
 
-### 1. Enter the TRUE Conversion Rates
+**Configuration**
 
-Enter the (_***unknowable in reality!***_) conversion rate for **A** below (if we _only_ ran **A** for ALL traffic from the end of the test for an entire year... and held everything else constant, because, well, _ceteris paribus_):
+Enter the (_**unknowable in reality!**_) conversion rates for **A** and **B** below (if we _only_ ran **A** or _only_ ran **B** for _all_ traffic for all time and _all other contributing factors were held constant_):
 
 ```{r}
 # Conversion Rate for A
 div(style="text-align: center;",
+    div(style="display:inline-block; padding-right: 5px; font-weight: bold", "A:"),
     div(style="display:inline-block;", numericInput("rate_a", label = NULL, value = 2.0, width = "100px")),
     div(style="display:inline-block; padding-left: 5px; font-weight: bold", "%"))
 ```
 
-Now, enter the (_***unknowable in reality!**_) conversion rates for **B**:
-
 ```{r}
 # Conversion Rate for B
 div(style="text-align: center;",
-    div(style="display:inline-block;", numericInput("rate_b", label = NULL, value = 2.2, width = "100px")),
+    div(style="display:inline-block; padding-right: 5px; font-weight: bold", "B:"),
+    div(style="display:inline-block;", numericInput("rate_b", label = NULL, value = 2.5, width = "100px")),
     div(style="display:inline-block; padding-left: 5px; font-weight: bold", "%"))
 ```
 
-### 2. Enter Test / Site Details
-
-How many visit(or)s experienced **each variation** (we're assuming a 50/50 split here), **during the duration of the test**?
+How many visit(or)s experienced **each variation** of the test?
 
 ```{r}
 # Number of visitors
-sliderInput("num_observations",
+div(style="text-align: center;",
+    div(style="display:inline-block",
+    sliderInput("num_observations",
             label = NULL,
-            min = 1000, max = 100000, value = 5000, step = 1000)
+            min = 1000, max = 100000, value = 50000, step = 1000)))
 ```
 
-For how many days did we run our (theoretical) test?
+**Annualizing Revenue Impact**
+
+For how many days did the test run?
 
 ```{r}
 # Test duration
+div(style="text-align: center;",
+    div(style="display:inline-block",
 numericInput("test_duration", 
              label = NULL, value = 7,
-             width = "150px")
+             width = "50px")))
 ```
 
 What's the average order value (AOV) for the site?
 
 ```{r}
 # Test duration
-numericInput("aov", 
+div(style="text-align: center;",
+    div(style="display:inline-block",numericInput("aov", 
              label = NULL, value = 200,
-             width = "150px")
+             width = "100px")))
 ```
 
-### 3. Let's Run a Test!
 
-Click the button below to simulate a test in the universe we've described.
+Row
+-----------------------------
+
+### Overview
+
+This simulator is designed to illustrate -- through calculations and simulation -- the difference between an _observed_ result in an A/B test and the _actual/true value_ _**(which is completely unknowable, but extremely useful to think about)**_.
+
+Click the button below to simulate a test in the universe we've described. 
 
 ```{r}
-
-actionButton("run_test", "Simulate a Test!")
-
+div(style="text-align: center;",
+    div(style="display:inline-block",
+        actionButton("run_test", "Simulate a Test!")))
 
 ```
 
@@ -91,7 +97,7 @@ actionButton("run_test", "Simulate a Test!")
 Row
 -----------------------------
 
-### The Visual of What We've Specified Above -- the _TRUE_ conversion rate for both **A** and **B**
+### Visualizing the Results
 
 We don't know the _actual_ values for **A** and **B**. We just know what we _observed_. If we did know the actual values, and we knew how many visitors we would have (which we've entered above), then we can predict where the _observed_ values will fall. That's what the distributions are representing.
 
@@ -105,51 +111,109 @@ plotOutput("main_plot")
 Row
 -----------------------------
 
+### Assessing the Test Results
+
+```{r results_assess}
+p("The true (absolute) lift from", em("A"), "to", em("B"), "is:", 
+  strong(textOutput("true_lift", inline = TRUE)))
+
+p("The", strong("observed lift"), "from", em("A"), "to", em("B"), "is:", 
+  strong(textOutput("observed_lift", inline = TRUE)))
+
+```
+
 ### Assessing the Results
 
-**The TRUE Annualized Impact of the Test**
-Imagining a world where we could run **A** at 100% for a year and then go back and run **B** at 100% for a year, the total incremental revenue would be:
+```{r nnualization_assess}
+
+p("The true annual revenue lift from running", em("B"), "instead of", em("A"), 
+  "would be:", strong(textOutput("rev_actual", inline = TRUE)))
+
+p("The", strong("observed annual revenue lift"), "from running", em("B"), 
+  "instead of", em("A"), "would be:", strong(textOutput("rev_observed", inline = TRUE)))
+
+p("The", strong("expected annual revenue lift RANGE"), "from running", em("B"), 
+  "instead of", em("A"), "would be:", strong(textOutput("rev_range", inline = TRUE)))
+
+```
 
 
 
+```{r base_calculations}
+# Calculations used multiple times .These are all reactive because they get repurposed a bit.
 
+# Convert the entered rates to percents
+rate_a_percent <- reactive({
+  input$rate_a/100
+})
 
-```{r calculations}
+rate_b_percent <- reactive({
+  input$rate_b/100
+})
 
-#####
-# Calculations used multiple times
-#####
+# Calculate the standard deviation for A and B. Handy reference:
+# https://stattrek.com/probability-distributions/binomial.aspx
+sd_a <- reactive({
+  sqrt(input$num_observations * rate_a_percent() * (1 - rate_a_percent())) / input$num_observations
+})
 
-# These are all reactive because they get repurposed a bit
+sd_b <- reactive({
+  sqrt(input$num_observations * rate_b_percent() * (1 - rate_b_percent())) / input$num_observations 
+})
 
+# Simulate a test -- simulate values for both A and for B
+a_observed <- reactive({
+  # For to re-run when the button is clicked
+  input$run_test
+  # Actually do a simulation
+  rbinom(input$num_observations, 1, rate_a_percent()) %>% sum()/input$num_observations
+})
 
-#####
+b_observed <- reactive({
+  # For to re-run when the button is clicked
+  input$run_test
+  # Actually do a simulation
+  b_observed <- rbinom(input$num_observations, 1, rate_b_percent()) %>% sum()/input$num_observations
+})
+
+# Calculate the 95% confidence interval based on the observed values. 
+# See: https://sigmazone.com/binomial-confidence-intervals/ and
+# http://statpages.info/confint.html
+xmin_a <- reactive({
+  a_observed() - 1.96 * sqrt(a_observed() * (1 - a_observed()) / input$num_observations)
+})
+
+xmax_a <- reactive({
+  a_observed() + 1.96 * sqrt(a_observed() * (1 - a_observed()) / input$num_observations)
+})
+
+xmin_b <- reactive({
+  b_observed() - 1.96 * sqrt(b_observed() * (1 - b_observed()) / input$num_observations)
+})
+
+xmax_b <- reactive({
+  b_observed() + 1.96 * sqrt(b_observed() * (1 - b_observed()) / input$num_observations)
+})
+
+```
+
+```{r main_plot}
 # Build the main plot
-#####
 
 output$main_plot <- renderPlot({
-  
-  # Convert the entered conversion rates to percentages
-  rate_a_percent <- input$rate_a/100
-  rate_b_percent <- input$rate_b/100
-  
-  # Calculate the standard deviation for A and B. Handy reference:
-  # https://stattrek.com/probability-distributions/binomial.aspx
-  sd_a <- sqrt(input$num_observations * rate_a_percent * (1 - rate_a_percent)) / input$num_observations 
-  sd_b <- sqrt(input$num_observations * rate_b_percent * (1 - rate_b_percent)) / input$num_observations 
   
   # We want to keep the limits of the x axis constant regardless of the #
   # of observations, so calculate those limits based on 1000 and 3 * the
   # standard deviation. This way, the user will see the distribution physically 
   # get narrower or tighter as they adjust the # of observations.
   min_x <- min(
-    rate_a_percent - (sqrt(1000 * rate_a_percent * (1 - rate_a_percent)) / 1000) * 3,
-    rate_b_percent - (sqrt(1000 * rate_b_percent * (1 - rate_b_percent)) / 1000) * 3
+    rate_a_percent() - (sqrt(1000 * rate_a_percent() * (1 - rate_a_percent())) / 1000) * 3,
+    rate_b_percent() - (sqrt(1000 * rate_b_percent() * (1 - rate_b_percent())) / 1000) * 3
   )
   
   max_x <- max(
-    rate_a_percent + (sqrt(1000 * rate_a_percent * (1 - rate_a_percent)) / 1000) * 3,
-    rate_b_percent + (sqrt(1000 * rate_b_percent * (1 - rate_b_percent)) / 1000) * 3
+    rate_a_percent() + (sqrt(1000 * rate_a_percent() * (1 - rate_a_percent())) / 1000) * 3,
+    rate_b_percent() + (sqrt(1000 * rate_b_percent() * (1 - rate_b_percent())) / 1000) * 3
   )
   
   # go ahead and figure the offset to get the Actual line labels to be offset appropriatesly
@@ -160,56 +224,58 @@ output$main_plot <- renderPlot({
   # going to use the same density function that gets used to draw the distributions
   # in the plot. The peak will be the mean, so we'll look at both means and see which
   # is greater.
-  max_y <- max(dnorm(x = rate_a_percent, mean = rate_a_percent, sd = sd_a),
-               dnorm(x = rate_b_percent, mean = rate_b_percent, sd = sd_b))
+  max_y <- max(dnorm(x = rate_a_percent(), mean = rate_a_percent(), sd = sd_a()),
+               dnorm(x = rate_b_percent(), mean = rate_b_percent(), sd = sd_b()))
   
   #########
   # Simulate the tests
   #########
   
-  # Simulate A and B
-  a_observed <- rbinom(input$num_observations, 1, rate_a_percent) %>% sum()/input$num_observations
-  b_observed <- rbinom(input$num_observations, 1, rate_b_percent) %>% sum()/input$num_observations
+  # Get the simulated data from the reactive functions defined earlier
+  a_observed <- a_observed()
+  b_observed <- b_observed()
+  xmin_a <- xmin_a()
+  xmax_a <- xmax_a()
+  xmin_b <- xmin_b()
+  xmax_b <- xmax_b()
   
   # We want to display the values within the distribution, so calculate the top of the
   # curve using a_observed and then set a y that is 2/3 of that; so the same for B and set
   # it at 1/3. This will let the confidence interval lines not fall on top of each other.
   # Yeah. I'm kinda' proud of this little bit.
-  a_observed_y <- dnorm(x = a_observed, mean = rate_a_percent, sd = sd_a) * 2/3
-  b_observed_y <- dnorm(x = b_observed, mean = rate_b_percent, sd = sd_b) * 1/3
+  a_observed_y <- dnorm(x = a_observed, mean = rate_a_percent(), sd = sd_a()) * 2/3
+  b_observed_y <- dnorm(x = b_observed, mean = rate_b_percent(), sd = sd_b()) * 1/3
   
   # Create a data frame with the values
   observed_df <- data.frame(name = c("A - Observed", "B - Observed"),
                             x = c(a_observed, b_observed),
+                            xmin = c(xmin_a, xmin_b),          # Error bar min
+                            xmax = c(xmax_a, xmax_b),          # Error bar max
                             y = c(a_observed_y, b_observed_y))
   
-  
-  foo <- 3
-  
   ########
-  # Create the plot
+  # Create the main plot
   ########
-  
   gg <- ggplot(data = data.frame(x = c(min_x, max_x)), aes(x)) +
     
     # Draw the two distributions
     stat_function(fun = dnorm, n = 300, geom = "area", 
-                  args = list(mean = rate_a_percent, sd = sd_a),
+                  args = list(mean = rate_a_percent(), sd = sd_a()),
                   fill = color_a, alpha = 0.1, color = "gray80",
                   linetype = "dotted", size = 1) +
     stat_function(fun = dnorm, n = 300, geom = "area",
-                  args = list(mean = rate_b_percent, sd = sd_b),
+                  args = list(mean = rate_b_percent(), sd = sd_b()),
                   fill = color_b, alpha = 0.1, color = "gray80",
                   linetype = "dotted", size = 1) +
     
     # Draw the two "actual" vertical lines and label them
-    geom_vline(xintercept = rate_a_percent, color = "gray30", linetype = "dashed", size = 1) +
-    geom_text(aes(x = rate_a_percent - label_offset, y = max_y * 1.05, 
-                  label = paste0("(True!) A - ", format(rate_a_percent * 100, nsmall = 1), "% (A)")),
+    geom_vline(xintercept = rate_a_percent(), color = "gray30", linetype = "dashed", size = 1) +
+    geom_text(aes(x = rate_a_percent() - label_offset, y = max_y * 1.05, 
+                  label = paste0("(True!) A: ", format(rate_a_percent() * 100, nsmall = 1), "%")),
               hjust = 1, size = 5) +
-    geom_vline(xintercept = rate_b_percent, color = "gray30", linetype = "dashed", size = 1) +
-    geom_text(aes(x = rate_b_percent + label_offset, y = max_y * 1.05, 
-                  label = paste0("(True!) B - ", format(rate_b_percent * 100, nsmall = 1), "% (A)")),
+    geom_vline(xintercept = rate_b_percent(), color = "gray30", linetype = "dashed", size = 1) +
+    geom_text(aes(x = rate_b_percent() + label_offset, y = max_y * 1.05, 
+                  label = paste0("(True!) B: ", format(rate_b_percent() * 100, nsmall = 1), "%")),
               hjust = 0, size = 5) +
     
     # Clean up the formatting
@@ -230,21 +296,82 @@ output$main_plot <- renderPlot({
     gg
   } else {
     gg +
+      geom_errorbarh(mapping = aes(xmin = xmin, xmax = xmax, y = y), data = observed_df,
+                     height = max_y/40, color = "gray30") +
       geom_point(mapping = aes(x=x, y=y, color = name, fill = name), data = observed_df, 
                  size = 4, shape = 23) +
+      geom_label(mapping = aes(x=x, y=y + max_y/18, label = paste0(format(round(x * 100, 1), nsmall = 2), "%")),
+                 size = 5, data = observed_df) +
       scale_fill_manual(values = c(color_a, color_b)) +
       scale_colour_manual(values = c(color_a, color_b))
     
   }
-
+  
   # Return the plot
   gg
   
 })
 
-
 ```
 
+```{r assess_results}
+
+# All the functions for assessing the results
+
+# True lift
+output$true_lift <- renderText({
+  paste0(format(input$rate_b - input$rate_a, nsmall=2), "%")
+})
+
+# Observed lift
+output$observed_lift <- renderText({
+  if(input$run_test == 0) {
+    observed_lift <- "not available"
+  } else {
+    paste0(format(round((b_observed() - a_observed()) * 100, 2), nsmall=1), "%")
+  }
+})
+
+# True Annualized Revenue
+output$rev_actual <- renderText({
+  # Calculate annualized revenue lift
+  rev_lift <- (rate_b_percent() - rate_a_percent()) * input$num_observations / input$test_duration * 365 * input$aov
+  
+  # Build the message
+  rev_message <- paste0("$", format(rev_lift, big.mark = ",", nsmall = 0))
+})
+
+# Annualized Revenue Lift from Observed Results
+output$rev_observed <- renderText({
+  if(input$run_test == 0) {
+    rev_message <- "not available"
+  } else {
+    # Calculate annualized revenue lift
+    rev_lift <- (b_observed() - a_observed()) * input$num_observations / input$test_duration * 365 * input$aov
+    # Build the message
+    rev_message <- paste0("$", format(rev_lift, big.mark = ",", nsmall = 0))
+  }
+  rev_message
+})
+
+# Calculating based on confidence intervals
+output$rev_range <- renderText({
+  if(input$run_test == 0) {
+    rev_message <- "not available"
+  } else {
+    # Calculate the min and max lifts
+    min_lift <- (xmin_b() - xmax_a()) * input$num_observations / input$test_duration * 365 * input$aov
+    max_lift <- (xmax_b() - xmin_a()) * input$num_observations / input$test_duration * 365 * input$aov
+    
+    # Build the message
+    rev_message <- paste0("$", format(round(min_lift,0), big.mark = ",", nsmall = 0), " to $",
+                          format(round(max_lift,0), big.mark = ",", nsmall = 0))
+  }
+  rev_message
+})
+
+
+```
 
 
 
