@@ -134,22 +134,20 @@ Row {data-height=250}
 
 ### Annualizing Revenue Impact
 
-**This section still needs significant work.**
+**This section still needs some cleanup and visualizations created.**
 
 ```{r annualization_assess}
 
 div("The true annual revenue lift from running", em("B"), "instead of", em("A"), 
-  "would be:", strong(textOutput("rev_actual", inline = TRUE)))
-
-div("The", strong("observed annual revenue lift"), "from running", em("B"), 
-  "instead of", em("A"), "would be:", strong(textOutput("rev_observed", inline = TRUE)))
-
-div("The", strong("expected annual revenue lift RANGE"), "from running", em("B"), 
-  "instead of", em("A"), "would be (this is overly broad currently -- more stats",
-  "work to be done):", strong(textOutput("rev_range", inline = TRUE)))
-
+    "would be:", strong(textOutput("rev_actual", inline = TRUE)))
 br()
-
+div("The", strong("observed annual revenue lift"), "from running", em("B"), 
+    "instead of", em("A"), "would be:", strong(textOutput("rev_observed", inline = TRUE)))
+br()
+div("The", strong("expected annual revenue lift RANGE"), "from running", em("B"), 
+    "instead of", em("A"), "would be ", strong(textOutput("rev_range", inline = TRUE)))
+br()
+div("The calculation above is based on a 2-sample difference in proportions 95% confidence interval.")
 ```
 
 
@@ -224,7 +222,7 @@ p_val <- reactive({
   # See https://stackoverflow.com/questions/33379962/power-t-test-error -- different
   # test, but the same error results w/ uniroot.
   prop_test <- try(power.prop.test(n = input$num_observations, p1 = a_observed(), p2 = b_observed(), 
-                               sig.level = NULL, power = 0.2,  alternative = "one.sided"),
+                                   sig.level = NULL, power = 0.2,  alternative = "one.sided"),
                    silent = TRUE)
   if(inherits(prop_test, "try-error")){
     p_val <- 0
@@ -232,7 +230,7 @@ p_val <- reactive({
     p_val <- prop_test$sig.level
   }
   
- p_val
+  p_val
   
 })
 
@@ -364,50 +362,48 @@ output$summary_message <- renderUI({
   
   # Return nothing if no test has been run
   if (input$run_test == 0)
-      return()
-
+    return()
+  
   # Summarize the true and observed lifts
   summary_message <- div("The true (absolute) lift from", em("A"), "to", em("B"), "is",
                          strong(percent((input$rate_b - input$rate_a)/100, accuracy = 0.01)), ", but, in the",
-                          "real world, that's not a value we know. We just know what the",
-                          strong("observed lift"), "from", em("A"), "to", em("B"), "was in our ",
-                          "simulation:", strong(percent(b_observed() - a_observed(), accuracy = 0.01)), ".")
+                         "real world, that's not a value we know. We just know what the",
+                         strong("observed lift"), "from", em("A"), "to", em("B"), "was in our ",
+                         "simulation:", strong(percent(b_observed() - a_observed(), accuracy = 0.01)), ".")
   
   # Get the p-value
   p_val <- p_val()
   
   # Check for significance and write out the HTML summarizing it
-    if(p_val < 0.05){
-      sig_message <- div("The test", strong("IS significant"), " at a 95% confidence level (p-value =",
-                           format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
-                           ", which is less than 0.05).", strong("We reject the null hypothesis that",
-                           "there is no difference between A and B."))
-    } else {
-      sig_message <- div("The test is", strong("NOT significant"), " at a 95% confidence level (p-value =",
-                           format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
-                           ", which is less than 0.05).", strong("We CANNOT reject the null hypothesis that",
-                           "there is no difference between A and B."))
-    }
+  if(p_val < 0.05){
+    sig_message <- div("The test", strong("IS significant"), " at a 95% confidence level (p-value =",
+                       format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
+                       ", which is less than 0.05).", strong("We reject the null hypothesis that",
+                                                             "there is no difference between A and B."))
+  } else {
+    sig_message <- div("The test is", strong("NOT significant"), " at a 95% confidence level (p-value =",
+                       format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
+                       ", which is less than 0.05).", strong("We CANNOT reject the null hypothesis that",
+                                                             "there is no difference between A and B."))
+  }
   
   # Explanatory note
   exp_message <- div(em("The significance test run above was for a one-tailed test with",  
-                          "a confidence level of 95% and power of 80%. We're not going to get into",
-                          "the minutia behind that here."))
-  
+                        "a confidence level of 95% and power of 80%. We're not going to get into",
+                        "the minutia behind that here."))
   
   # Build up all three statements
   summary_message <- list(summary_message, br(), sig_message, br(), exp_message)
-
-    summary_message
-
+  
+  summary_message
 })
 
 # Recording if the type of result we've seen
 output$result_type <- renderPlot({
   
-    # Return nothing if no test has been run
+  # Return nothing if no test has been run
   if (input$run_test == 0)
-      return()
+    return()
   
   # Get the p-value
   p_val <- p_val()
@@ -446,7 +442,6 @@ output$result_type <- renderPlot({
           line = element_blank(),
           axis.text = element_blank(),
           axis.title = element_blank())
-  
   gg
 })
 
@@ -473,13 +468,28 @@ output$rev_observed <- renderText({
 })
 
 # Calculating based on confidence intervals
+# Use a 2-sample test of proportions confidence interval formula:
+# https://newonlinecourses.science.psu.edu/stat414/node/209/
+
 output$rev_range <- renderText({
   if(input$run_test == 0) {
-    rev_message <- "not available"
+    return()
   } else {
+    
+    # Calculate the minimum proportional lift (e.g., if the observed A and B had a 5% lift,
+    # this would calculate the +/- from that lift to get a 95% confidence interval for the
+    # true lift)
+    
+    min_lift_proportion <- b_observed() - a_observed() - 1.96 *
+      sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
+ 
+    max_lift_proportion <- b_observed() - a_observed() + 1.96 *
+      sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
+
+       
     # Calculate the min and max lifts
-    min_lift <- (xmin_b() - xmax_a()) * input$num_observations / input$test_duration * 365 * input$aov
-    max_lift <- (xmax_b() - xmin_a()) * input$num_observations / input$test_duration * 365 * input$aov
+    min_lift <- min_lift_proportion * input$num_observations / input$test_duration * 365 * input$aov
+    max_lift <- max_lift_proportion * input$num_observations / input$test_duration * 365 * input$aov
     
     # Build the message
     rev_message <- paste0("$", format(round(min_lift,0), big.mark = ",", nsmall = 0), " to $",
@@ -487,7 +497,6 @@ output$rev_range <- renderText({
   }
   rev_message
 })
-
 
 ```
 
