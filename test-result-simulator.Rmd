@@ -1,10 +1,12 @@
 ---
-title: "A/B Test Result Simulator"
+title: "|  A/B Test Result Simulator"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
-#    css: styles.css
+    css: styles.css
     vertical_layout: scroll
+    logo: logo-sm.png
+    favicon: favicon.png
     includes:
       after_body: tracking.html
 runtime: shiny
@@ -12,6 +14,7 @@ runtime: shiny
 
 ```{r setup}
 library(tidyverse)
+library(scales)
 
 # Specify the base colors for A and B. These get used in various places
 color_a <- "#00A2B1"
@@ -48,9 +51,9 @@ How many visit(or)s experienced **each variation** of the test?
 # Number of visitors
 div(style="text-align: center;",
     div(style="display:inline-block",
-    sliderInput("num_observations",
-            label = NULL,
-            min = 1000, max = 100000, value = 50000, step = 1000)))
+        sliderInput("num_observations",
+                    label = NULL,
+                    min = 1000, max = 100000, value = 50000, step = 1000)))
 ```
 
 **Annualizing Revenue Impact**
@@ -61,9 +64,9 @@ For how many days did the test run?
 # Test duration
 div(style="text-align: center;",
     div(style="display:inline-block",
-numericInput("test_duration", 
-             label = NULL, value = 7,
-             width = "50px")))
+        numericInput("test_duration", 
+                     label = NULL, value = 7,
+                     width = "100px")))
 ```
 
 What's the average order value (AOV) for the site?
@@ -72,10 +75,18 @@ What's the average order value (AOV) for the site?
 # Test duration
 div(style="text-align: center;",
     div(style="display:inline-block",numericInput("aov", 
-             label = NULL, value = 200,
-             width = "100px")))
+                                                  label = NULL, value = 200,
+                                                  width = "100px")))
 ```
 
+**Click Below to Simulate a Test**
+
+```{r}
+div(style="text-align: center;",
+    div(style="display:inline-block",
+        actionButton("run_test", "Run a Simulation!")))
+
+```
 
 Row
 -----------------------------
@@ -84,22 +95,12 @@ Row
 
 This simulator is designed to illustrate -- through calculations and simulation -- the difference between an _observed_ result in an A/B test and the _actual/true value_ _**(which is completely unknowable, but extremely useful to think about)**_.
 
-Click the button below to simulate a test in the universe we've described. 
-
-```{r}
-div(style="text-align: center;",
-    div(style="display:inline-block",
-        actionButton("run_test", "Simulate a Test!")))
-
-```
-
-
-Row
+Row {data-height=500}
 -----------------------------
 
 ### Visualizing the Results
 
-We don't know the _actual_ values for **A** and **B**. We just know what we _observed_. If we did know the actual values, and we knew how many visitors we would have (which we've entered above), then we can predict where the _observed_ values will fall. That's what the distributions are representing.
+In the real world, we don't know the _actual_ values for **A** and **B**. We just know what we _observed_. If we did know the actual values, and we knew how many visitors we would have (which we've entered at left), then we could predict where the _observed_ values would fall. That's what the distributions are representing -- the magic of simulations in which we can see the normally unseeable.
 
 ```{r}
 
@@ -108,32 +109,46 @@ plotOutput("main_plot")
 
 ```
 
-Row
+Row {data-height=200}
 -----------------------------
 
 ### Assessing the Test Results
 
 ```{r results_assess}
-p("The true (absolute) lift from", em("A"), "to", em("B"), "is:", 
-  strong(textOutput("true_lift", inline = TRUE)))
 
-p("The", strong("observed lift"), "from", em("A"), "to", em("B"), "is:", 
-  strong(textOutput("observed_lift", inline = TRUE)))
+uiOutput("summary_message")
 
 ```
 
-### Assessing the Results
+### Which Means We Have a...
 
-```{r nnualization_assess}
+```{r results_viz, fig.height = 1}
 
-p("The true annual revenue lift from running", em("B"), "instead of", em("A"), 
+plotOutput("result_type")
+
+```
+
+
+Row {data-height=250} 
+-----------------------------
+
+### Annualizing Revenue Impact
+
+**This section still needs significant work.**
+
+```{r annualization_assess}
+
+div("The true annual revenue lift from running", em("B"), "instead of", em("A"), 
   "would be:", strong(textOutput("rev_actual", inline = TRUE)))
 
-p("The", strong("observed annual revenue lift"), "from running", em("B"), 
+div("The", strong("observed annual revenue lift"), "from running", em("B"), 
   "instead of", em("A"), "would be:", strong(textOutput("rev_observed", inline = TRUE)))
 
-p("The", strong("expected annual revenue lift RANGE"), "from running", em("B"), 
-  "instead of", em("A"), "would be:", strong(textOutput("rev_range", inline = TRUE)))
+div("The", strong("expected annual revenue lift RANGE"), "from running", em("B"), 
+  "instead of", em("A"), "would be (this is overly broad currently -- more stats",
+  "work to be done):", strong(textOutput("rev_range", inline = TRUE)))
+
+br()
 
 ```
 
@@ -193,6 +208,32 @@ xmin_b <- reactive({
 
 xmax_b <- reactive({
   b_observed() + 1.96 * sqrt(b_observed() * (1 - b_observed()) / input$num_observations)
+})
+
+# Calculate the 95% confidence interval for the 2-sample test
+# https://www.socscistatistics.com/confidenceinterval/default4.aspx.
+# http://sphweb.bumc.bu.edu/otlt/MPH-Modules/BS/BS704_Confidence_Intervals/BS704_Confidence_Intervals5.html
+
+
+# Check for significance
+p_val <- reactive({
+  
+  # power.prop.test() throws an error if there is a large enough n and enough of 
+  # a difference between p1 and p2. In those cases, the p-value (sig.level) is just
+  # very, very low. So, doing some error handling to account for that.
+  # See https://stackoverflow.com/questions/33379962/power-t-test-error -- different
+  # test, but the same error results w/ uniroot.
+  prop_test <- try(power.prop.test(n = input$num_observations, p1 = a_observed(), p2 = b_observed(), 
+                               sig.level = NULL, power = 0.2,  alternative = "one.sided"),
+                   silent = TRUE)
+  if(inherits(prop_test, "try-error")){
+    p_val <- 0
+  } else {
+    p_val <- prop_test$sig.level
+  }
+  
+ p_val
+  
 })
 
 ```
@@ -318,18 +359,95 @@ output$main_plot <- renderPlot({
 
 # All the functions for assessing the results
 
-# True lift
-output$true_lift <- renderText({
-  paste0(format(input$rate_b - input$rate_a, nsmall=2), "%")
+# Significance Message
+output$summary_message <- renderUI({
+  
+  # Return nothing if no test has been run
+  if (input$run_test == 0)
+      return()
+
+  # Summarize the true and observed lifts
+  summary_message <- div("The true (absolute) lift from", em("A"), "to", em("B"), "is",
+                         strong(percent((input$rate_b - input$rate_a)/100, accuracy = 0.01)), ", but, in the",
+                          "real world, that's not a value we know. We just know what the",
+                          strong("observed lift"), "from", em("A"), "to", em("B"), "was in our ",
+                          "simulation:", strong(percent(b_observed() - a_observed(), accuracy = 0.01)), ".")
+  
+  # Get the p-value
+  p_val <- p_val()
+  
+  # Check for significance and write out the HTML summarizing it
+    if(p_val < 0.05){
+      sig_message <- div("The test", strong("IS significant"), " at a 95% confidence level (p-value =",
+                           format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
+                           ", which is less than 0.05).", strong("We reject the null hypothesis that",
+                           "there is no difference between A and B."))
+    } else {
+      sig_message <- div("The test is", strong("NOT significant"), " at a 95% confidence level (p-value =",
+                           format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
+                           ", which is less than 0.05).", strong("We CANNOT reject the null hypothesis that",
+                           "there is no difference between A and B."))
+    }
+  
+  # Explanatory note
+  exp_message <- div(em("The significance test run above was for a one-tailed test with",  
+                          "a confidence level of 95% and power of 80%. We're not going to get into",
+                          "the minutia behind that here."))
+  
+  
+  # Build up all three statements
+  summary_message <- list(summary_message, br(), sig_message, br(), exp_message)
+
+    summary_message
+
 })
 
-# Observed lift
-output$observed_lift <- renderText({
-  if(input$run_test == 0) {
-    observed_lift <- "not available"
+# Recording if the type of result we've seen
+output$result_type <- renderPlot({
+  
+    # Return nothing if no test has been run
+  if (input$run_test == 0)
+      return()
+  
+  # Get the p-value
+  p_val <- p_val()
+  
+  # Start with a case where the "truth" is that there IS a difference
+  if(input$rate_a != input$rate_b){
+    # Check for significance
+    if(p_val < 0.05){
+      result_text <- "True Positive"
+      result_fill <- "green"
+    } else {
+      result_text <- "False Negative"
+      result_fill <- "red"
+    }
   } else {
-    paste0(format(round((b_observed() - a_observed()) * 100, 2), nsmall=1), "%")
+    # A and B are the same in truth
+    # Check for significance
+    if(p_val < 0.05){
+      result_text <- "False Positive"
+      result_fill <- "red"
+    } else {
+      result_text <- "True Negative"
+      result_fill <- "green"
+    }
   }
+  
+  # Make a data frame for a simple plot
+  gg_data <- data.frame(x = 1, y = 1, result = result_text)
+  
+  # Make the plot
+  gg <- ggplot(data = gg_data,
+               mapping = aes(x = x, y = y, label = result)) +
+    geom_text(size = 7) +
+    theme_light() +
+    theme(panel.background = element_rect(fill = result_fill),
+          line = element_blank(),
+          axis.text = element_blank(),
+          axis.title = element_blank())
+  
+  gg
 })
 
 # True Annualized Revenue

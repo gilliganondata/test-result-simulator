@@ -1,10 +1,10 @@
 /* Remove the title bar */
 .navbar{
-  visibility: hidden;
+  background-color: #000000;
+  text-align: center;
 } 
 
 body {
-  padding-top: 8px;
   background-color: #f4f4f4;
 }
 
@@ -14,20 +14,6 @@ p, a {
     font-size: 14px;
 }
 
-/* The ggiraph package does a weird overwriting of the text style */
-/* and makes it a serif font. So, this corrects for that */
-text {
-     font-family: "adelle-sans",helvetica,arial,sans-serf;
-}
-
-/* Tabsets try to resize to be wayyyy to tall. So, overwrite that. */
-/*
-#section-row-1 {
-    height: 250px;
-    flex: 0 0 250px !important;
-}
- */
-
 /* Main results output */
 h1 {
   font-family: "adelle-sans",helvetica,arial,sans-serf;
@@ -36,7 +22,6 @@ h1 {
   color: #0060AF;
   text-align: center;
 }
-
 h2 {
   font-family: "adelle-sans",helvetica,arial,sans-serf;
   font-size: 22px;
@@ -58,35 +43,12 @@ h3 {
   color: #444;
 }
 
-/* Tabset text */
-#section-row-1 > ul > li > a {
-  font-family: "adelle-sans",helvetica,arial,sans-serf;
-  font-size: 16px;
-  font-weight: bold;
-  color: #444;
-  border-color: #cccccc;
-}
-
-/* Make the tabset tabs look more visibly like tabs */
-#section-row-1 > ul > li:not(.active) > a {
-  background-color: #eeeeee;
-}
-
-/* Indent the numeric sliders a bit */
-.shiny-input-container:not(.shiny-input-container-inline) {
-  margin-left: 10px;
-/*  margin-right: auto; */
-}
-
-/* One-tailed vs. two-tailed radio buttons */
-#tail {
-  width: 95%;
-}
-
 /* Overall app title */
 .navbar-brand {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: bold;
+  text-align: center;
+  margin-left: -25px !important;
 }
 
 /* Numerical inputs */
