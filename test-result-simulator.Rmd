@@ -109,7 +109,7 @@ plotOutput("main_plot")
 
 ```
 
-Row {data-height=200}
+Row {data-height=260}
 -----------------------------
 
 ### Assessing the Test Results
@@ -118,6 +118,13 @@ Row {data-height=200}
 
 uiOutput("summary_message")
 
+```
+
+### A Visual Comparison of the Lift %s
+
+```{r conversion_rate_plot}
+
+plotOutput("conv_rate_lift")
 ```
 
 ### Which Means We Have a...
@@ -134,7 +141,7 @@ Row {data-height=250}
 
 ### Annualizing Revenue Impact
 
-**This section still needs some cleanup and visualizations created.**
+We can use the traffic volume, test duration, and average order value, along with our conversion rate lift calculations to see what annualized revenue looks like. _Keep in mind that these only work if we hold every other revenue factor constant (and we still have a range even with that!)_
 
 ```{r annualization_assess}
 
@@ -189,9 +196,10 @@ b_observed <- reactive({
   b_observed <- rbinom(input$num_observations, 1, rate_b_percent()) %>% sum()/input$num_observations
 })
 
-# Calculate the 95% confidence interval based on the observed values. 
+# Calculate the 95% confidence interval for A and for B based on the observed values. 
 # See: https://sigmazone.com/binomial-confidence-intervals/ and
-# http://statpages.info/confint.html
+# http://statpages.info/confint.html. Probably could get these out of prop.test()
+# instead.
 xmin_a <- reactive({
   a_observed() - 1.96 * sqrt(a_observed() * (1 - a_observed()) / input$num_observations)
 })
@@ -208,29 +216,46 @@ xmax_b <- reactive({
   b_observed() + 1.96 * sqrt(b_observed() * (1 - b_observed()) / input$num_observations)
 })
 
-# Calculate the 95% confidence interval for the 2-sample test
+# Calculate the 95% confidence interval for the 2-sample difference in proportions
 # https://www.socscistatistics.com/confidenceinterval/default4.aspx.
-# http://sphweb.bumc.bu.edu/otlt/MPH-Modules/BS/BS704_Confidence_Intervals/BS704_Confidence_Intervals5.html
+# http://sphweb.bumc.bu.edu/otlt/MPH-Modules/BS/BS704_Confidence_Intervals/BS704_Confidence_Intervals5.html.
+# It may be worth switching these to just use conf.int from prop.test() rather than
+# hand-calculating.
+min_lift_proportion <- reactive({
+      min_lift_proportion <- b_observed() - a_observed() - 1.96 *
+      sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
+      
+      cat("Min lift:", min_lift_proportion, "\n")
+      min_lift_proportion
+})
 
+max_lift_proportion <- reactive({
+      max_lift_proportion <- b_observed() - a_observed() + 1.96 *
+      sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
+      
+      cat("Max lift:", max_lift_proportion, "\n")
+      max_lift_proportion
+})
 
-# Check for significance
+# 2-sample test of proportions. We'll need this for the p-value and for
+# the confidence interval
+prop_test <- reactive({
+  
+# Run a 2-sample test of proportions. This is checking the null hypothesis
+  # that B is NOT GREATER THAN A (a one-tailed test)
+  prop_test <- prop.test(x = c(b_observed() * input$num_observations, 
+                               a_observed() * input$num_observations), 
+                         n = rep(input$num_observations,2),
+              alternative = "two.sided")
+  
+  cat("Conf. interval:", prop_test$conf.int, "\n")
+  prop_test
+})
+
+# Get the p-value
 p_val <- reactive({
-  
-  # power.prop.test() throws an error if there is a large enough n and enough of 
-  # a difference between p1 and p2. In those cases, the p-value (sig.level) is just
-  # very, very low. So, doing some error handling to account for that.
-  # See https://stackoverflow.com/questions/33379962/power-t-test-error -- different
-  # test, but the same error results w/ uniroot.
-  prop_test <- try(power.prop.test(n = input$num_observations, p1 = a_observed(), p2 = b_observed(), 
-                                   sig.level = NULL, power = 0.2,  alternative = "one.sided"),
-                   silent = TRUE)
-  if(inherits(prop_test, "try-error")){
-    p_val <- 0
-  } else {
-    p_val <- prop_test$sig.level
-  }
-  
-  p_val
+
+  p_val <- prop_test()$p.value
   
 })
 
@@ -286,7 +311,7 @@ output$main_plot <- renderPlot({
   b_observed_y <- dnorm(x = b_observed, mean = rate_b_percent(), sd = sd_b()) * 1/3
   
   # Create a data frame with the values
-  observed_df <- data.frame(name = c("A - Observed", "B - Observed"),
+  observed_df <- data.frame(name = c("(Observed) A: ", "(Observed) B: "),
                             x = c(a_observed, b_observed),
                             xmin = c(xmin_a, xmin_b),          # Error bar min
                             xmax = c(xmax_a, xmax_b),          # Error bar max
@@ -339,7 +364,7 @@ output$main_plot <- renderPlot({
                      height = max_y/40, color = "gray30") +
       geom_point(mapping = aes(x=x, y=y, color = name, fill = name), data = observed_df, 
                  size = 4, shape = 23) +
-      geom_label(mapping = aes(x=x, y=y + max_y/18, label = paste0(format(round(x * 100, 1), nsmall = 2), "%")),
+      geom_label(mapping = aes(x=x, y=y + max_y/18, label = paste0(name, format(round(x * 100, 1), nsmall = 2), "%")),
                  size = 5, data = observed_df) +
       scale_fill_manual(values = c(color_a, color_b)) +
       scale_colour_manual(values = c(color_a, color_b))
@@ -388,8 +413,8 @@ output$summary_message <- renderUI({
   }
   
   # Explanatory note
-  exp_message <- div(em("The significance test run above was for a one-tailed test with",  
-                        "a confidence level of 95% and power of 80%. We're not going to get into",
+  exp_message <- div(em("The significance test run above was for a two-tailed test with",  
+                        "a confidence level of 95%. We're not going to get into",
                         "the minutia behind that here."))
   
   # Build up all three statements
@@ -398,7 +423,52 @@ output$summary_message <- renderUI({
   summary_message
 })
 
-# Recording if the type of result we've seen
+# Visualize the actual vs. observed conversion rate lift
+output$conv_rate_lift <- renderPlot({
+  
+   # Return nothing if no test has been run
+  if (input$run_test == 0)
+    return()
+  
+  # Make the actual lift label
+  label_actual <- paste0("Actual Lift:\n",
+                         percent(rate_b_percent() - rate_a_percent()))
+  label_observed <- paste0("Observed Lift:\n",
+                           percent(b_observed() - a_observed()),
+                           " +/- ",
+                           percent((max_lift_proportion() - min_lift_proportion())/2))
+  
+  # Build the data frame with the values we need to make the bar 
+  # chart with error bars
+  conv_rate_lift_df <- data.frame(x = c(label_actual, label_observed),
+                                  y = c(rate_b_percent() - rate_a_percent(),
+                                        b_observed() - a_observed()),
+                                  ymin = c(NA, min_lift_proportion()),
+                                  ymax = c(NA, max_lift_proportion()))
+  
+  # Build the plot
+  gg <- ggplot(data = conv_rate_lift_df, 
+               mapping = aes(x = x, y = y, fill = x, ymin = ymin, ymax = ymax)) +
+    geom_bar(stat = "identity") +
+    geom_errorbar(width = .06, color = "gray30") +
+    geom_hline(aes(yintercept = 0)) +
+    scale_fill_manual(values = c("#999999", "#00A2B1")) +
+    scale_y_continuous(expand = c(0,0)) +
+    theme_light() + theme(axis.title = element_blank(),
+                          axis.text.y = element_blank(),
+                          axis.text.x = element_text(size = 16, face="bold", 
+                                                     margin = margin(0.3,0,0,0,"cm")),
+                          panel.border = element_blank(),
+                          panel.grid = element_blank(),
+                          legend.position = "nono" )
+  
+  gg
+  
+})
+
+
+
+# Recording if the type of result we've seen - true positive, false positive,...
 output$result_type <- renderPlot({
   
   # Return nothing if no test has been run
@@ -447,8 +517,11 @@ output$result_type <- renderPlot({
 
 # True Annualized Revenue
 output$rev_actual <- renderText({
-  # Calculate annualized revenue lift
-  rev_lift <- (rate_b_percent() - rate_a_percent()) * input$num_observations / input$test_duration * 365 * input$aov
+  # Calculate annualized revenue lift. We're multiplying by 2 because the # of 
+  # visit(ors) to each experience is only half of the total visit(or)s. Otherwise,
+  # it's just straight math to get to a per day amount and then multiply by
+  # 365. 
+  rev_lift <- 2 * (rate_b_percent() - rate_a_percent()) * input$num_observations / input$test_duration * 365 * input$aov
   
   # Build the message
   rev_message <- paste0("$", format(rev_lift, big.mark = ",", nsmall = 0))
@@ -460,7 +533,7 @@ output$rev_observed <- renderText({
     rev_message <- "not available"
   } else {
     # Calculate annualized revenue lift
-    rev_lift <- (b_observed() - a_observed()) * input$num_observations / input$test_duration * 365 * input$aov
+    rev_lift <- 2 * (b_observed() - a_observed()) * input$num_observations / input$test_duration * 365 * input$aov
     # Build the message
     rev_message <- paste0("$", format(rev_lift, big.mark = ",", nsmall = 0))
   }
@@ -479,13 +552,8 @@ output$rev_range <- renderText({
     # Calculate the minimum proportional lift (e.g., if the observed A and B had a 5% lift,
     # this would calculate the +/- from that lift to get a 95% confidence interval for the
     # true lift)
-    
-    min_lift_proportion <- b_observed() - a_observed() - 1.96 *
-      sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
- 
-    max_lift_proportion <- b_observed() - a_observed() + 1.96 *
-      sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
-
+    min_lift_proportion <- min_lift_proportion()
+    max_lift_proportion <- max_lift_proportion()
        
     # Calculate the min and max lifts
     min_lift <- min_lift_proportion * input$num_observations / input$test_duration * 365 * input$aov
