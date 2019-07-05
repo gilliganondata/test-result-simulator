@@ -115,7 +115,8 @@ Row {data-height=260}
 ### Assessing the Test Results
 
 ```{r results_assess}
-
+# Output the summary explanation. This is built up with all of the
+# formatting in the summary_message output.
 uiOutput("summary_message")
 
 ```
@@ -123,7 +124,8 @@ uiOutput("summary_message")
 ### A Visual Comparison of the Lift %s
 
 ```{r conversion_rate_plot}
-
+# A bar chart showing the actual lift, and then the observed lift
+# with the confidence interval.
 plotOutput("conv_rate_lift")
 ```
 
@@ -141,20 +143,12 @@ Row {data-height=250}
 
 ### Annualizing Revenue Impact
 
-We can use the traffic volume, test duration, and average order value, along with our conversion rate lift calculations to see what annualized revenue looks like. _Keep in mind that these only work if we hold every other revenue factor constant (and we still have a range even with that!)_
+We can use the traffic volume, test duration, and average order value, along with our conversion rate lift calculations to see what annualized revenue looks like. _**Keep in mind that these only work if we hold every other revenue factor constant (and we still have a range even with that!)**_
 
 ```{r annualization_assess}
 
-div("The true annual revenue lift from running", em("B"), "instead of", em("A"), 
-    "would be:", strong(textOutput("rev_actual", inline = TRUE)))
-br()
-div("The", strong("observed annual revenue lift"), "from running", em("B"), 
-    "instead of", em("A"), "would be:", strong(textOutput("rev_observed", inline = TRUE)))
-br()
-div("The", strong("expected annual revenue lift RANGE"), "from running", em("B"), 
-    "instead of", em("A"), "would be ", strong(textOutput("rev_range", inline = TRUE)))
-br()
-div("The calculation above is based on a 2-sample difference in proportions 95% confidence interval.")
+uiOutput("annual_rev_message")
+
 ```
 
 
@@ -222,31 +216,31 @@ xmax_b <- reactive({
 # It may be worth switching these to just use conf.int from prop.test() rather than
 # hand-calculating.
 min_lift_proportion <- reactive({
-      min_lift_proportion <- b_observed() - a_observed() - 1.96 *
-      sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
-      
-      cat("Min lift:", min_lift_proportion, "\n")
-      min_lift_proportion
+  min_lift_proportion <- b_observed() - a_observed() - 1.96 *
+    sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
+  
+  cat("Min lift:", min_lift_proportion, "\n")
+  min_lift_proportion
 })
 
 max_lift_proportion <- reactive({
-      max_lift_proportion <- b_observed() - a_observed() + 1.96 *
-      sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
-      
-      cat("Max lift:", max_lift_proportion, "\n")
-      max_lift_proportion
+  max_lift_proportion <- b_observed() - a_observed() + 1.96 *
+    sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
+  
+  cat("Max lift:", max_lift_proportion, "\n")
+  max_lift_proportion
 })
 
 # 2-sample test of proportions. We'll need this for the p-value and for
 # the confidence interval
 prop_test <- reactive({
   
-# Run a 2-sample test of proportions. This is checking the null hypothesis
+  # Run a 2-sample test of proportions. This is checking the null hypothesis
   # that B is NOT GREATER THAN A (a one-tailed test)
   prop_test <- prop.test(x = c(b_observed() * input$num_observations, 
                                a_observed() * input$num_observations), 
                          n = rep(input$num_observations,2),
-              alternative = "two.sided")
+                         alternative = "two.sided")
   
   cat("Conf. interval:", prop_test$conf.int, "\n")
   prop_test
@@ -254,7 +248,7 @@ prop_test <- reactive({
 
 # Get the p-value
 p_val <- reactive({
-
+  
   p_val <- prop_test()$p.value
   
 })
@@ -426,7 +420,7 @@ output$summary_message <- renderUI({
 # Visualize the actual vs. observed conversion rate lift
 output$conv_rate_lift <- renderPlot({
   
-   # Return nothing if no test has been run
+  # Return nothing if no test has been run
   if (input$run_test == 0)
     return()
   
@@ -465,8 +459,6 @@ output$conv_rate_lift <- renderPlot({
   gg
   
 })
-
-
 
 # Recording if the type of result we've seen - true positive, false positive,...
 output$result_type <- renderPlot({
@@ -515,55 +507,93 @@ output$result_type <- renderPlot({
   gg
 })
 
-# True Annualized Revenue
-output$rev_actual <- renderText({
-  # Calculate annualized revenue lift. We're multiplying by 2 because the # of 
-  # visit(ors) to each experience is only half of the total visit(or)s. Otherwise,
-  # it's just straight math to get to a per day amount and then multiply by
-  # 365. 
-  rev_lift <- 2 * (rate_b_percent() - rate_a_percent()) * input$num_observations / input$test_duration * 365 * input$aov
+
+output$annual_rev_message <- renderUI({
   
-  # Build the message
-  rev_message <- paste0("$", format(rev_lift, big.mark = ",", nsmall = 0))
-})
-
-# Annualized Revenue Lift from Observed Results
-output$rev_observed <- renderText({
-  if(input$run_test == 0) {
-    rev_message <- "not available"
-  } else {
-    # Calculate annualized revenue lift
-    rev_lift <- 2 * (b_observed() - a_observed()) * input$num_observations / input$test_duration * 365 * input$aov
-    # Build the message
-    rev_message <- paste0("$", format(rev_lift, big.mark = ",", nsmall = 0))
-  }
-  rev_message
-})
-
-# Calculating based on confidence intervals
-# Use a 2-sample test of proportions confidence interval formula:
-# https://newonlinecourses.science.psu.edu/stat414/node/209/
-
-output$rev_range <- renderText({
+  # Only calculate if a simulation has been run
   if(input$run_test == 0) {
     return()
   } else {
     
-    # Calculate the minimum proportional lift (e.g., if the observed A and B had a 5% lift,
-    # this would calculate the +/- from that lift to get a 95% confidence interval for the
-    # true lift)
-    min_lift_proportion <- min_lift_proportion()
-    max_lift_proportion <- max_lift_proportion()
-       
-    # Calculate the min and max lifts
-    min_lift <- min_lift_proportion * input$num_observations / input$test_duration * 365 * input$aov
-    max_lift <- max_lift_proportion * input$num_observations / input$test_duration * 365 * input$aov
-    
-    # Build the message
-    rev_message <- paste0("$", format(round(min_lift,0), big.mark = ",", nsmall = 0), " to $",
-                          format(round(max_lift,0), big.mark = ",", nsmall = 0))
+    # If the statistical significance wasn't achieved, then assume would not calculate
+    # revenue lift at all.
+    if (p_val() >= 0.05){
+      
+      rev_lift_full_message <- div("In this case, since we didn't achieve statistical significance with the",
+                                   "test, no annualized revenue lift would have been calculated,")
+      
+    } else {
+      
+      # Calculate the actual annualized revenue lift. The "2*" is because the # of
+      # visit(or)s in the simulation are for A and for B -- representing 1/2 of
+      # the total volume.
+      rev_lift_actual <- 2 * (rate_b_percent() - rate_a_percent()) * 
+        input$num_observations / input$test_duration * 365 * input$aov
+      
+      # Calculate OBESRVED annualized revenue lift
+      rev_lift_observed <- 2 * (b_observed() - a_observed()) * 
+        input$num_observations / input$test_duration * 365 * input$aov
+      
+      # Calculate the minimum proportional lift (e.g., if the observed A and B had a 5% lift,
+      # this would calculate the +/- from that lift to get a 95% confidence interval for the
+      # true lift)
+      min_lift_proportion <- min_lift_proportion()
+      max_lift_proportion <- max_lift_proportion()
+      
+      # Calculate the min and max lifts
+      min_lift <- 2 * min_lift_proportion * input$num_observations / input$test_duration * 365 * input$aov
+      max_lift <- 2 * max_lift_proportion * input$num_observations / input$test_duration * 365 * input$aov
+      
+      # Build the message for the actual annualized revenue
+      rev_message_actual <- div("The ACTUAL annual revenue lift from running", em("B"), "instead of", em("A"), 
+                                "would be:", strong(paste0("$", format(round(rev_lift_actual, 0), big.mark = ",", 
+                                                                       nsmall = 0))),".")
+      
+      # Compose a message that compares the actual to the observed
+      if(rev_lift_actual > rev_lift_observed){
+        compare_message <- span("This would be an", strong("understatement"), "of the annualized revenue",
+                                "impact by", strong(paste0("$", format(round(rev_lift_actual - rev_lift_observed,0), 
+                                                                       big.mark = ",", nsmall = 0))), ".")
+      } else {
+        if(rev_lift_actual < rev_lift_observed){
+          compare_message <- span("This would be an", strong("overstatement"), "of the annualized revenue",
+                                  "impact by", strong(paste0("$", format(rev_lift_observed - rev_lift_actual, 
+                                                                         big.mark = ",", nsmall = 0))), ".")
+        } else {
+          compare_message <- ""
+        }
+      }
+      
+      # Build the message for the annualized revenue based on the observed result
+      rev_message_observed <- div("The annualized revenue lift based on the", 
+                                  strong("observed result"), "from running", em("B"), 
+                                  "instead of", em("A"), "would be:", 
+                                  strong(paste0("$", format(round(rev_lift_observed, 0), big.mark = ",", nsmall = 0))),
+                                  ".", compare_message)
+      
+      # Build a message based on whether the actual annualized revenue would fall within
+      # the range of revenue based on the lift confidence interval
+      if(rev_lift_actual >= min_lift & rev_lift_actual <= max_lift){
+        range_result_message <- span("The actual annualized revenue", strong("would"), "fall within this range.")
+      } else {
+        range_result_message <- span("The actual annualized revenue", strong("would NOT"), "fall within this range.")
+      }
+      
+      # Build the message that uses the lift confidence interval to calculate a range
+      # annualized revenue.
+      range_message <- div("The expected annual revenue lift", strong("RANGE"), "(a 95% confidence interval)",
+                           "from running", em("B"), 
+                           "instead of", em("A"), "would be ", 
+                           strong(paste0("$", format(round(min_lift,0), big.mark = ",", nsmall = 0), " to $",
+                                         format(round(max_lift,0), big.mark = ",", nsmall = 0))),
+                           ".", range_result_message, ".")
+      
+      # Gather the messages together
+      rev_lift_full_message <- list(rev_message_actual, br(), rev_message_observed, br(),
+                                    range_message)
+    }
   }
-  rev_message
+  rev_lift_full_message
 })
 
 ```
