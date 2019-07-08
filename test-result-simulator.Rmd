@@ -9,6 +9,7 @@ output:
     favicon: favicon.png
     includes:
       after_body: tracking.html
+      in_header: gtm.js
 runtime: shiny
 ---
 
@@ -33,7 +34,7 @@ Enter the (_**unknowable in reality!**_) conversion rates for **A** and **B** be
 # Conversion Rate for A
 div(style="text-align: center;",
     div(style="display:inline-block; padding-right: 5px; font-weight: bold", "A:"),
-    div(style="display:inline-block;", numericInput("rate_a", label = NULL, value = 2.0, width = "100px")),
+    div(style="display:inline-block;", numericInput("rate_a", label = NULL, value = 5.0, width = "100px")),
     div(style="display:inline-block; padding-left: 5px; font-weight: bold", "%"))
 ```
 
@@ -41,7 +42,7 @@ div(style="text-align: center;",
 # Conversion Rate for B
 div(style="text-align: center;",
     div(style="display:inline-block; padding-right: 5px; font-weight: bold", "B:"),
-    div(style="display:inline-block;", numericInput("rate_b", label = NULL, value = 2.5, width = "100px")),
+    div(style="display:inline-block;", numericInput("rate_b", label = NULL, value = 5.5, width = "100px")),
     div(style="display:inline-block; padding-left: 5px; font-weight: bold", "%"))
 ```
 
@@ -53,7 +54,7 @@ div(style="text-align: center;",
     div(style="display:inline-block",
         sliderInput("num_observations",
                     label = NULL,
-                    min = 1000, max = 100000, value = 50000, step = 1000)))
+                    min = 1000, max = 100000, value = 25000, step = 1000)))
 ```
 
 **Annualizing Revenue Impact**
@@ -65,7 +66,7 @@ For how many days did the test run?
 div(style="text-align: center;",
     div(style="display:inline-block",
         numericInput("test_duration", 
-                     label = NULL, value = 7,
+                     label = NULL, value = 14,
                      width = "100px")))
 ```
 
@@ -75,7 +76,7 @@ What's the average order value (AOV) for the site?
 # Test duration
 div(style="text-align: center;",
     div(style="display:inline-block",numericInput("aov", 
-                                                  label = NULL, value = 200,
+                                                  label = NULL, value = 100,
                                                   width = "100px")))
 ```
 
@@ -236,7 +237,7 @@ max_lift_proportion <- reactive({
 prop_test <- reactive({
   
   # Run a 2-sample test of proportions. This is checking the null hypothesis
-  # that B is NOT GREATER THAN A (a one-tailed test)
+  # that B is NOT DIFFERENT THAN A (a two-tailed test)
   prop_test <- prop.test(x = c(b_observed() * input$num_observations, 
                                a_observed() * input$num_observations), 
                          n = rep(input$num_observations,2),
@@ -329,11 +330,11 @@ output$main_plot <- renderPlot({
     # Draw the two "actual" vertical lines and label them
     geom_vline(xintercept = rate_a_percent(), color = "gray30", linetype = "dashed", size = 1) +
     geom_text(aes(x = rate_a_percent() - label_offset, y = max_y * 1.05, 
-                  label = paste0("(True!) A: ", format(rate_a_percent() * 100, nsmall = 1), "%")),
+                  label = paste0("(True!) A: ", format(rate_a_percent() * 100, nsmall = 2), "%")),
               hjust = 1, size = 5) +
     geom_vline(xintercept = rate_b_percent(), color = "gray30", linetype = "dashed", size = 1) +
     geom_text(aes(x = rate_b_percent() + label_offset, y = max_y * 1.05, 
-                  label = paste0("(True!) B: ", format(rate_b_percent() * 100, nsmall = 1), "%")),
+                  label = paste0("(True!) B: ", format(rate_b_percent() * 100, nsmall = 2), "%")),
               hjust = 0, size = 5) +
     
     # Clean up the formatting
@@ -358,7 +359,7 @@ output$main_plot <- renderPlot({
                      height = max_y/40, color = "gray30") +
       geom_point(mapping = aes(x=x, y=y, color = name, fill = name), data = observed_df, 
                  size = 4, shape = 23) +
-      geom_label(mapping = aes(x=x, y=y + max_y/18, label = paste0(name, format(round(x * 100, 1), nsmall = 2), "%")),
+      geom_label(mapping = aes(x=x, y=y + max_y/18, label = paste0(name, format(round(x * 100, 3), nsmall = 3), "%")),
                  size = 5, data = observed_df) +
       scale_fill_manual(values = c(color_a, color_b)) +
       scale_colour_manual(values = c(color_a, color_b))
