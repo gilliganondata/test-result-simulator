@@ -193,22 +193,26 @@ b_observed <- reactive({
 
 # Calculate the 95% confidence interval for A and for B based on the observed values. 
 # See: https://sigmazone.com/binomial-confidence-intervals/ and
-# http://statpages.info/confint.html. Probably could get these out of prop.test()
-# instead.
+# http://statpages.info/confint.html. 
+
 xmin_a <- reactive({
-  a_observed() - 1.96 * sqrt(a_observed() * (1 - a_observed()) / input$num_observations)
+  prop_test <- prop.test(a_observed() * input$num_observations, input$num_observations)
+  prop_test$conf.int[[1]]
 })
 
 xmax_a <- reactive({
-  a_observed() + 1.96 * sqrt(a_observed() * (1 - a_observed()) / input$num_observations)
+  prop_test <- prop.test(a_observed() * input$num_observations, input$num_observations)
+  prop_test$conf.int[[2]]
 })
 
 xmin_b <- reactive({
-  b_observed() - 1.96 * sqrt(b_observed() * (1 - b_observed()) / input$num_observations)
+  prop_test <- prop.test(b_observed() * input$num_observations, input$num_observations)
+  prop_test$conf.int[[1]]
 })
 
 xmax_b <- reactive({
-  b_observed() + 1.96 * sqrt(b_observed() * (1 - b_observed()) / input$num_observations)
+  prop_test <- prop.test(b_observed() * input$num_observations, input$num_observations)
+  prop_test$conf.int[[2]]
 })
 
 # Calculate the 95% confidence interval for the 2-sample difference in proportions
@@ -237,11 +241,11 @@ max_lift_proportion <- reactive({
 prop_test <- reactive({
   
   # Run a 2-sample test of proportions. This is checking the null hypothesis
-  # that B is NOT DIFFERENT THAN A (a two-tailed test)
+  # that B is NOT GREATER THAN A (a one-tailed test)
   prop_test <- prop.test(x = c(b_observed() * input$num_observations, 
                                a_observed() * input$num_observations), 
                          n = rep(input$num_observations,2),
-                         alternative = "two.sided")
+                         alternative = "greater")
   
   cat("Conf. interval:", prop_test$conf.int, "\n")
   prop_test
@@ -261,110 +265,125 @@ p_val <- reactive({
 
 output$main_plot <- renderPlot({
   
-  # We want to keep the limits of the x axis constant regardless of the #
-  # of observations, so calculate those limits based on 1000 and 3 * the
-  # standard deviation. This way, the user will see the distribution physically 
-  # get narrower or tighter as they adjust the # of observations.
-  min_x <- min(
-    rate_a_percent() - (sqrt(1000 * rate_a_percent() * (1 - rate_a_percent())) / 1000) * 3,
-    rate_b_percent() - (sqrt(1000 * rate_b_percent() * (1 - rate_b_percent())) / 1000) * 3
-  )
-  
-  max_x <- max(
-    rate_a_percent() + (sqrt(1000 * rate_a_percent() * (1 - rate_a_percent())) / 1000) * 3,
-    rate_b_percent() + (sqrt(1000 * rate_b_percent() * (1 - rate_b_percent())) / 1000) * 3
-  )
-  
-  # go ahead and figure the offset to get the Actual line labels to be offset appropriatesly
-  label_offset <- (max_x - min_x)/80
-  
-  # For visual clarity, we want to scale the y-axis so that the "top peak" stays
-  # pretty much constant with enough room above it to put the labels. So, we're
-  # going to use the same density function that gets used to draw the distributions
-  # in the plot. The peak will be the mean, so we'll look at both means and see which
-  # is greater.
-  max_y <- max(dnorm(x = rate_a_percent(), mean = rate_a_percent(), sd = sd_a()),
-               dnorm(x = rate_b_percent(), mean = rate_b_percent(), sd = sd_b()))
-  
-  #########
-  # Simulate the tests
-  #########
-  
-  # Get the simulated data from the reactive functions defined earlier
-  a_observed <- a_observed()
-  b_observed <- b_observed()
-  xmin_a <- xmin_a()
-  xmax_a <- xmax_a()
-  xmin_b <- xmin_b()
-  xmax_b <- xmax_b()
-  
-  # We want to display the values within the distribution, so calculate the top of the
-  # curve using a_observed and then set a y that is 2/3 of that; so the same for B and set
-  # it at 1/3. This will let the confidence interval lines not fall on top of each other.
-  # Yeah. I'm kinda' proud of this little bit.
-  a_observed_y <- dnorm(x = a_observed, mean = rate_a_percent(), sd = sd_a()) * 2/3
-  b_observed_y <- dnorm(x = b_observed, mean = rate_b_percent(), sd = sd_b()) * 1/3
-  
-  # Create a data frame with the values
-  observed_df <- data.frame(name = c("(Observed) A: ", "(Observed) B: "),
-                            x = c(a_observed, b_observed),
-                            xmin = c(xmin_a, xmin_b),          # Error bar min
-                            xmax = c(xmax_a, xmax_b),          # Error bar max
-                            y = c(a_observed_y, b_observed_y))
-  
-  ########
-  # Create the main plot
-  ########
-  gg <- ggplot(data = data.frame(x = c(min_x, max_x)), aes(x)) +
-    
-    # Draw the two distributions
-    stat_function(fun = dnorm, n = 300, geom = "area", 
-                  args = list(mean = rate_a_percent(), sd = sd_a()),
-                  fill = color_a, alpha = 0.1, color = "gray80",
-                  linetype = "dotted", size = 1) +
-    stat_function(fun = dnorm, n = 300, geom = "area",
-                  args = list(mean = rate_b_percent(), sd = sd_b()),
-                  fill = color_b, alpha = 0.1, color = "gray80",
-                  linetype = "dotted", size = 1) +
-    
-    # Draw the two "actual" vertical lines and label them
-    geom_vline(xintercept = rate_a_percent(), color = "gray30", linetype = "dashed", size = 1) +
-    geom_text(aes(x = rate_a_percent() - label_offset, y = max_y * 1.05, 
-                  label = paste0("(True!) A: ", format(rate_a_percent() * 100, nsmall = 2), "%")),
-              hjust = 1, size = 5) +
-    geom_vline(xintercept = rate_b_percent(), color = "gray30", linetype = "dashed", size = 1) +
-    geom_text(aes(x = rate_b_percent() + label_offset, y = max_y * 1.05, 
-                  label = paste0("(True!) B: ", format(rate_b_percent() * 100, nsmall = 2), "%")),
-              hjust = 0, size = 5) +
-    
-    # Clean up the formatting
-    scale_y_continuous(expand = c(0,0), limits = c(0, 1.1 * max_y), breaks = NULL) +
-    theme_light() +
-    theme(legend.position = "none",
-          panel.border = element_blank(),
-          panel.grid = element_blank(),
-          plot.margin = margin(0,0,2.5,0, unit="cm"),   # Hacking around clipping in flexdashboard
-          axis.title = element_blank(),
-          axis.text = element_blank(),
-          axis.line.x = element_line(color = "gray20"))
-  
-  # Add the simulated test results if any exist. If I try to do this with just a simple
-  # 'if(input$run_test > 0)' and not an if/else, then the plot doesn't draw initially. I'm
-  # not sure why.
-  gg <- if(input$run_test == 0) {
-    gg
+  # In order to work with one-tailed and not allow squirrely results, we're going to
+  # force the settings to be such that B >= A. So, build a plot that is just a message
+  # that that is required and display that if B < A.
+  if(input$rate_b < input$rate_a){
+    gg <- ggplot(data = data.frame(x = 1, y = 1, 
+                                   label = paste("Please set the value of B to",
+                                                 "be greater than or equal to the value for A.")),
+                 mapping = aes(x = x, y = y, label = label)) +
+      geom_text(size = 10, fontface = "italic", colour = "#0060AF") +
+      theme_light() +
+      theme(line = element_blank(),
+            text = element_blank(),
+            panel.border = element_blank())
   } else {
-    gg +
-      geom_errorbarh(mapping = aes(xmin = xmin, xmax = xmax, y = y), data = observed_df,
-                     height = max_y/40, color = "gray30") +
-      geom_point(mapping = aes(x=x, y=y, color = name, fill = name), data = observed_df, 
-                 size = 4, shape = 23) +
-      geom_label(mapping = aes(x=x, y=y + max_y/18, label = paste0(name, format(round(x * 100, 3), nsmall = 3), "%")),
-                 size = 5, data = observed_df) +
-      scale_fill_manual(values = c(color_a, color_b)) +
-      scale_colour_manual(values = c(color_a, color_b))
     
-  }
+    # We want to keep the limits of the x axis constant regardless of the #
+    # of observations, so calculate those limits based on 1000 and 3 * the
+    # standard deviation. This way, the user will see the distribution physically 
+    # get narrower or tighter as they adjust the # of observations.
+    min_x <- min(
+      rate_a_percent() - (sqrt(1000 * rate_a_percent() * (1 - rate_a_percent())) / 1000) * 3,
+      rate_b_percent() - (sqrt(1000 * rate_b_percent() * (1 - rate_b_percent())) / 1000) * 3
+    )
+    
+    max_x <- max(
+      rate_a_percent() + (sqrt(1000 * rate_a_percent() * (1 - rate_a_percent())) / 1000) * 3,
+      rate_b_percent() + (sqrt(1000 * rate_b_percent() * (1 - rate_b_percent())) / 1000) * 3
+    )
+    
+    # go ahead and figure the offset to get the Actual line labels to be offset appropriatesly
+    label_offset <- (max_x - min_x)/80
+    
+    # For visual clarity, we want to scale the y-axis so that the "top peak" stays
+    # pretty much constant with enough room above it to put the labels. So, we're
+    # going to use the same density function that gets used to draw the distributions
+    # in the plot. The peak will be the mean, so we'll look at both means and see which
+    # is greater.
+    max_y <- max(dnorm(x = rate_a_percent(), mean = rate_a_percent(), sd = sd_a()),
+                 dnorm(x = rate_b_percent(), mean = rate_b_percent(), sd = sd_b()))
+    
+    #########
+    # Simulate the tests
+    #########
+    
+    # Get the simulated data from the reactive functions defined earlier
+    a_observed <- a_observed()
+    b_observed <- b_observed()
+    xmin_a <- xmin_a()
+    xmax_a <- xmax_a()
+    xmin_b <- xmin_b()
+    xmax_b <- xmax_b()
+    
+    # We want to display the values within the distribution, so calculate the top of the
+    # curve using a_observed and then set a y that is 2/3 of that; so the same for B and set
+    # it at 1/3. This will let the confidence interval lines not fall on top of each other.
+    # Yeah. I'm kinda' proud of this little bit.
+    a_observed_y <- dnorm(x = a_observed, mean = rate_a_percent(), sd = sd_a()) * 2/3
+    b_observed_y <- dnorm(x = b_observed, mean = rate_b_percent(), sd = sd_b()) * 1/3
+    
+    # Create a data frame with the values
+    observed_df <- data.frame(name = c("(Observed) A: ", "(Observed) B: "),
+                              x = c(a_observed, b_observed),
+                              xmin = c(xmin_a, xmin_b),          # Error bar min
+                              xmax = c(xmax_a, xmax_b),          # Error bar max
+                              y = c(a_observed_y, b_observed_y))
+    
+    ########
+    # Create the main plot
+    ########
+    gg <- ggplot(data = data.frame(x = c(min_x, max_x)), aes(x)) +
+      
+      # Draw the two distributions
+      stat_function(fun = dnorm, n = 300, geom = "area", 
+                    args = list(mean = rate_a_percent(), sd = sd_a()),
+                    fill = color_a, alpha = 0.1, color = "gray80",
+                    linetype = "dotted", size = 1) +
+      stat_function(fun = dnorm, n = 300, geom = "area",
+                    args = list(mean = rate_b_percent(), sd = sd_b()),
+                    fill = color_b, alpha = 0.1, color = "gray80",
+                    linetype = "dotted", size = 1) +
+      
+      # Draw the two "actual" vertical lines and label them
+      geom_vline(xintercept = rate_a_percent(), color = "gray30", linetype = "dashed", size = 1) +
+      geom_text(aes(x = rate_a_percent() - label_offset, y = max_y * 1.05, 
+                    label = paste0("(True!) A: ", format(rate_a_percent() * 100, nsmall = 2), "%")),
+                hjust = 1, size = 5) +
+      geom_vline(xintercept = rate_b_percent(), color = "gray30", linetype = "dashed", size = 1) +
+      geom_text(aes(x = rate_b_percent() + label_offset, y = max_y * 1.05, 
+                    label = paste0("(True!) B: ", format(rate_b_percent() * 100, nsmall = 2), "%")),
+                hjust = 0, size = 5) +
+      
+      # Clean up the formatting
+      scale_y_continuous(expand = c(0,0), limits = c(0, 1.1 * max_y), breaks = NULL) +
+      theme_light() +
+      theme(legend.position = "none",
+            panel.border = element_blank(),
+            panel.grid = element_blank(),
+            plot.margin = margin(0,0,2.5,0, unit="cm"),   # Hacking around clipping in flexdashboard
+            axis.title = element_blank(),
+            axis.text = element_blank(),
+            axis.line.x = element_line(color = "gray20"))
+    
+    # Add the simulated test results if any exist. If I try to do this with just a simple
+    # 'if(input$run_test > 0)' and not an if/else, then the plot doesn't draw initially. I'm
+    # not sure why.
+    gg <- if(input$run_test == 0) {
+      gg
+    } else {
+      gg +
+        geom_errorbarh(mapping = aes(xmin = xmin, xmax = xmax, y = y), data = observed_df,
+                       height = max_y/40, color = "gray30") +
+        geom_point(mapping = aes(x=x, y=y, color = name, fill = name), data = observed_df, 
+                   size = 4, shape = 23) +
+        geom_label(mapping = aes(x=x, y=y + max_y/18, label = paste0(name, format(round(x * 100, 3), nsmall = 3), "%")),
+                   size = 5, data = observed_df) +
+        scale_fill_manual(values = c(color_a, color_b)) +
+        scale_colour_manual(values = c(color_a, color_b))
+      
+    }}
   
   # Return the plot
   gg
@@ -380,139 +399,145 @@ output$main_plot <- renderPlot({
 # Significance Message
 output$summary_message <- renderUI({
   
-  # Return nothing if no test has been run
-  if (input$run_test == 0)
+  # Return nothing if no test has been run or if B < A
+  if (input$run_test == 0 | input$rate_b < input$rate_a){
     return()
-  
-  # Summarize the true and observed lifts
-  summary_message <- div("The true (absolute) lift from", em("A"), "to", em("B"), "is",
-                         strong(percent((input$rate_b - input$rate_a)/100, accuracy = 0.01)), ", but, in the",
-                         "real world, that's not a value we know. We just know what the",
-                         strong("observed lift"), "from", em("A"), "to", em("B"), "was in our ",
-                         "simulation:", strong(percent(b_observed() - a_observed(), accuracy = 0.01)), ".")
-  
-  # Get the p-value
-  p_val <- p_val()
-  
-  # Check for significance and write out the HTML summarizing it
-  if(p_val < 0.05){
-    sig_message <- div("The test", strong("IS significant"), " at a 95% confidence level (p-value =",
-                       format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
-                       ", which is less than 0.05).", strong("We reject the null hypothesis that",
-                                                             "there is no difference between A and B."))
   } else {
-    sig_message <- div("The test is", strong("NOT significant"), " at a 95% confidence level (p-value =",
-                       format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
-                       ", which is less than 0.05).", strong("We CANNOT reject the null hypothesis that",
-                                                             "there is no difference between A and B."))
+    
+    # Summarize the true and observed lifts
+    summary_message <- div("The true (absolute) lift from", em("A"), "to", em("B"), "is",
+                           strong(percent((input$rate_b - input$rate_a)/100, accuracy = 0.01)), ", but, in the",
+                           "real world, that's not a value we know. We just know what the",
+                           strong("observed lift"), "from", em("A"), "to", em("B"), "was in our ",
+                           "simulation:", strong(percent(b_observed() - a_observed(), accuracy = 0.01)), ".")
+    
+    # Get the p-value
+    p_val <- p_val()
+    
+    # Check for significance and write out the HTML summarizing it
+    if(p_val < 0.05){
+      sig_message <- div("The test", strong("IS significant"), " at a 95% confidence level (p-value =",
+                         format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
+                         ", which is less than 0.05).", strong("We reject the null hypothesis that",
+                                                               "there is no difference between A and B."))
+    } else {
+      sig_message <- div("The test is", strong("NOT significant"), " at a 95% confidence level (p-value =",
+                         format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
+                         ", which is less than 0.05).", strong("We CANNOT reject the null hypothesis that",
+                                                               "there is no difference between A and B."))
+    }
+    
+    # Explanatory note
+    exp_message <- div(em("The significance test run above was for a one-tailed test with",  
+                          "a confidence level of 95%. We're not going to get into",
+                          "the minutia behind that here."))
+    
+    # Build up all three statements
+    summary_message <- list(summary_message, br(), sig_message, br(), exp_message)
+    
+    summary_message
   }
-  
-  # Explanatory note
-  exp_message <- div(em("The significance test run above was for a two-tailed test with",  
-                        "a confidence level of 95%. We're not going to get into",
-                        "the minutia behind that here."))
-  
-  # Build up all three statements
-  summary_message <- list(summary_message, br(), sig_message, br(), exp_message)
-  
-  summary_message
 })
 
 # Visualize the actual vs. observed conversion rate lift
 output$conv_rate_lift <- renderPlot({
   
-  # Return nothing if no test has been run
-  if (input$run_test == 0)
+  # Return nothing if no test has been run or if B < A
+  if (input$run_test == 0 | input$rate_b < input$rate_a){
     return()
-  
-  # Make the actual lift label
-  label_actual <- paste0("Actual Lift:\n",
-                         percent(rate_b_percent() - rate_a_percent()))
-  label_observed <- paste0("Observed Lift:\n",
-                           percent(b_observed() - a_observed()),
-                           " +/- ",
-                           percent((max_lift_proportion() - min_lift_proportion())/2))
-  
-  # Build the data frame with the values we need to make the bar 
-  # chart with error bars
-  conv_rate_lift_df <- data.frame(x = c(label_actual, label_observed),
-                                  y = c(rate_b_percent() - rate_a_percent(),
-                                        b_observed() - a_observed()),
-                                  ymin = c(NA, min_lift_proportion()),
-                                  ymax = c(NA, max_lift_proportion()))
-  
-  # Build the plot
-  gg <- ggplot(data = conv_rate_lift_df, 
-               mapping = aes(x = x, y = y, fill = x, ymin = ymin, ymax = ymax)) +
-    geom_bar(stat = "identity") +
-    geom_errorbar(width = .06, color = "gray30") +
-    geom_hline(aes(yintercept = 0)) +
-    scale_fill_manual(values = c("#999999", "#00A2B1")) +
-    scale_y_continuous(expand = c(0,0)) +
-    theme_light() + theme(axis.title = element_blank(),
-                          axis.text.y = element_blank(),
-                          axis.text.x = element_text(size = 16, face="bold", 
-                                                     margin = margin(0.3,0,0,0,"cm")),
-                          panel.border = element_blank(),
-                          panel.grid = element_blank(),
-                          legend.position = "nono" )
-  
-  gg
+  } else {
+    
+    # Make the actual lift label
+    label_actual <- paste0("Actual Lift:\n",
+                           percent(rate_b_percent() - rate_a_percent()))
+    label_observed <- paste0("Observed Lift:\n",
+                             percent(b_observed() - a_observed()),
+                             " +/- ",
+                             percent((max_lift_proportion() - min_lift_proportion())/2))
+    
+    # Build the data frame with the values we need to make the bar 
+    # chart with error bars
+    conv_rate_lift_df <- data.frame(x = c(label_actual, label_observed),
+                                    y = c(rate_b_percent() - rate_a_percent(),
+                                          b_observed() - a_observed()),
+                                    ymin = c(NA, min_lift_proportion()),
+                                    ymax = c(NA, max_lift_proportion()))
+    
+    # Build the plot
+    gg <- ggplot(data = conv_rate_lift_df, 
+                 mapping = aes(x = x, y = y, fill = x, ymin = ymin, ymax = ymax)) +
+      geom_bar(stat = "identity") +
+      geom_errorbar(width = .06, color = "gray30") +
+      geom_hline(aes(yintercept = 0)) +
+      scale_fill_manual(values = c("#999999", "#00A2B1")) +
+      scale_y_continuous(expand = c(0,0)) +
+      theme_light() + theme(axis.title = element_blank(),
+                            axis.text.y = element_blank(),
+                            axis.text.x = element_text(size = 16, face="bold", 
+                                                       margin = margin(0.3,0,0,0,"cm")),
+                            panel.border = element_blank(),
+                            panel.grid = element_blank(),
+                            legend.position = "nono" )
+    
+    gg
+  }
   
 })
 
 # Recording if the type of result we've seen - true positive, false positive,...
 output$result_type <- renderPlot({
   
-  # Return nothing if no test has been run
-  if (input$run_test == 0)
+  # Return nothing if no test has been run or if B < A
+  if (input$run_test == 0 | input$rate_b < input$rate_a){
     return()
-  
-  # Get the p-value
-  p_val <- p_val()
-  
-  # Start with a case where the "truth" is that there IS a difference
-  if(input$rate_a != input$rate_b){
-    # Check for significance
-    if(p_val < 0.05){
-      result_text <- "True Positive"
-      result_fill <- "green"
-    } else {
-      result_text <- "False Negative"
-      result_fill <- "red"
-    }
   } else {
-    # A and B are the same in truth
-    # Check for significance
-    if(p_val < 0.05){
-      result_text <- "False Positive"
-      result_fill <- "red"
+    
+    # Get the p-value
+    p_val <- p_val()
+    
+    # Start with a case where the "truth" is that there IS a difference
+    if(input$rate_a != input$rate_b){
+      # Check for significance
+      if(p_val < 0.05){
+        result_text <- "True Positive"
+        result_fill <- "green"
+      } else {
+        result_text <- "False Negative"
+        result_fill <- "red"
+      }
     } else {
-      result_text <- "True Negative"
-      result_fill <- "green"
+      # A and B are the same in truth
+      # Check for significance
+      if(p_val < 0.05){
+        result_text <- "False Positive"
+        result_fill <- "red"
+      } else {
+        result_text <- "True Negative"
+        result_fill <- "green"
+      }
     }
+    
+    # Make a data frame for a simple plot
+    gg_data <- data.frame(x = 1, y = 1, result = result_text)
+    
+    # Make the plot
+    gg <- ggplot(data = gg_data,
+                 mapping = aes(x = x, y = y, label = result)) +
+      geom_text(size = 7) +
+      theme_light() +
+      theme(panel.background = element_rect(fill = result_fill),
+            line = element_blank(),
+            axis.text = element_blank(),
+            axis.title = element_blank())
+    gg
   }
-  
-  # Make a data frame for a simple plot
-  gg_data <- data.frame(x = 1, y = 1, result = result_text)
-  
-  # Make the plot
-  gg <- ggplot(data = gg_data,
-               mapping = aes(x = x, y = y, label = result)) +
-    geom_text(size = 7) +
-    theme_light() +
-    theme(panel.background = element_rect(fill = result_fill),
-          line = element_blank(),
-          axis.text = element_blank(),
-          axis.title = element_blank())
-  gg
 })
 
 
 output$annual_rev_message <- renderUI({
   
-  # Only calculate if a simulation has been run
-  if(input$run_test == 0) {
+  # Return nothing if no test has been run or if B < A
+  if (input$run_test == 0 | input$rate_b < input$rate_a){
     return()
   } else {
     
