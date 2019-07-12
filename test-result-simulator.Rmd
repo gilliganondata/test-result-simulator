@@ -101,7 +101,7 @@ div(style="text-align: center;",
 Row
 -----------------------------
 
-### Overview
+### Overview and Purpose
 
 This simulator is designed to illustrate -- through calculations and simulation -- the difference between an _observed_ result in an A/B test and the _actual/true value_ _**(which is completely unknowable, but extremely useful to think about)**_.
 
@@ -119,10 +119,19 @@ plotOutput("main_plot")
 
 ```
 
+
+Row
+-----------------------------
+
+### Assessment #1: Detecting the EXISTENCE of an Effect
+
+Does the observed difference in **A** and **B** indicate that the two variations are truly different? (This is question that sample size calculators generally focus on: _detecting an effect_ only).
+
+
 Row {data-height=260}
 -----------------------------
 
-### Assessing the Test Results
+### Check for Statistical Significance {data-width=667}
 
 ```{r results_assess}
 # Output the summary explanation. This is built up with all of the
@@ -131,15 +140,7 @@ uiOutput("summary_message")
 
 ```
 
-### A Visual Comparison of the Lift %s
-
-```{r conversion_rate_plot}
-# A bar chart showing the actual lift, and then the observed lift
-# with the confidence interval.
-plotOutput("conv_rate_lift")
-```
-
-### Which Means We Have a...
+### Which Means We Have a... {data-width=333}
 
 ```{r results_viz, fig.height = 1}
 
@@ -148,22 +149,31 @@ plotOutput("result_type")
 ```
 
 
+Row
+-----------------------------
+
+### Assessment #2: Estimating the SIZE of the Effect
+
+Can you simply use the observed difference in **A** and **B** to estimate the annualized impact of the winning variation? You can...but that can be dangerous.
+
 Row {data-height=250} 
 -----------------------------
 
-### Annualizing Revenue Impact
+### A Visual Comparison of the Lift %s {data-width=333}
+
+```{r conversion_rate_plot}
+# A bar chart showing the actual lift, and then the observed lift
+# with the confidence interval.
+plotOutput("conv_rate_lift")
+```
+
+### Annualizing Revenue Impact {data-width=667}
 
 ```{r annualization_assess}
-
-div(class = "descriptions",
-    "We can use the traffic volume, test duration, and average order value, along with our conversion",
-    "rate lift calculations to see what annualized revenue looks like.", em("Keep in mind that these only",
-    "work if we hold every other revenue factor constant (and we still have a range even with that!)"))
 
 uiOutput("annual_rev_message")
 
 ```
-
 
 
 ```{r base_calculations}
@@ -254,12 +264,25 @@ prop_test <- reactive({
   
   # Run a 2-sample test of proportions. This is checking the null hypothesis
   # that B is NOT GREATER THAN A (a one-tailed test)
+  
+  # If the simulation is set up as an A/A test, we want to use a two-tailed
+  # assessment. Otherwise, we'll use one-tailed.
+  if(input$rate_a == input$rate_b){
+  prop_test <- prop.test(x = c(b_observed() * input$num_observations, 
+                               a_observed() * input$num_observations), 
+                         n = rep(input$num_observations,2),
+                         alternative = "two.sided")
+
+  } else {
   prop_test <- prop.test(x = c(b_observed() * input$num_observations, 
                                a_observed() * input$num_observations), 
                          n = rep(input$num_observations,2),
                          alternative = "greater")
+  }
   
+  # Write out to the console just for debug reference
   cat("Conf. interval:", prop_test$conf.int, "\n")
+  
   prop_test
 })
 
@@ -440,9 +463,16 @@ output$summary_message <- renderUI({
                                                                "there is no difference between A and B."))
     }
     
+    # We're using a one-tailed test if B > A and a two-tailed if B == A
+      if(input$rate_a == input$rate_b){
+        alternative <- "two-tailed"
+      } else {
+        alternative <- "one-tailed"
+      }
+    
     # Explanatory note
     exp_message <- div(class = "descriptions", 
-                       em("The significance test run above was for a one-tailed test with",  
+                       em("The significance test run above was for a", alternative, "test with",  
                           "a confidence level of 95%. We're not going to get into",
                           "the minutia behind that here."))
     
@@ -451,52 +481,6 @@ output$summary_message <- renderUI({
     
     summary_message
   }
-})
-
-# Visualize the actual vs. observed conversion rate lift
-output$conv_rate_lift <- renderPlot({
-  
-  # Return nothing if no test has been run or if B < A
-  if (input$run_test == 0 | input$rate_b < input$rate_a){
-    return()
-  } else {
-    
-    # Make the actual lift label
-    label_actual <- paste0("Actual Lift:\n",
-                           percent(rate_b_percent() - rate_a_percent()))
-    label_observed <- paste0("Observed Lift:\n",
-                             percent(b_observed() - a_observed()),
-                             " +/- ",
-                             percent((max_lift_proportion() - min_lift_proportion())/2))
-    
-    # Build the data frame with the values we need to make the bar 
-    # chart with error bars
-    conv_rate_lift_df <- data.frame(x = c(label_actual, label_observed),
-                                    y = c(rate_b_percent() - rate_a_percent(),
-                                          b_observed() - a_observed()),
-                                    ymin = c(NA, min_lift_proportion()),
-                                    ymax = c(NA, max_lift_proportion()))
-    
-    # Build the plot
-    gg <- ggplot(data = conv_rate_lift_df, 
-                 mapping = aes(x = x, y = y, fill = x, ymin = ymin, ymax = ymax)) +
-      geom_bar(stat = "identity") +
-      geom_errorbar(width = .06, color = "gray30") +
-      geom_hline(aes(yintercept = 0)) +
-      scale_fill_manual(values = c("#999999", "#00A2B1")) +
-      scale_y_continuous(expand = c(0,0)) +
-      theme_light() + theme(axis.title = element_blank(),
-                            axis.text.y = element_blank(),
-                            axis.text.x = element_text(size = 16, face="bold", 
-                                                       family = "Nunito",
-                                                       margin = margin(0.3,0,0,0,"cm")),
-                            panel.border = element_blank(),
-                            panel.grid = element_blank(),
-                            legend.position = "nono" )
-    
-    gg
-  }
-  
 })
 
 # Recording if the type of result we've seen - true positive, false positive,...
@@ -548,6 +532,51 @@ output$result_type <- renderPlot({
   }
 })
 
+# Visualize the actual vs. observed conversion rate lift
+output$conv_rate_lift <- renderPlot({
+  
+  # Return nothing if no test has been run or if B < A
+  if (input$run_test == 0 | input$rate_b < input$rate_a){
+    return()
+  } else {
+    
+    # Make the actual lift label
+    label_actual <- paste0("Actual Lift:\n",
+                           percent(rate_b_percent() - rate_a_percent()))
+    label_observed <- paste0("Observed Lift:\n",
+                             percent(b_observed() - a_observed()),
+                             " +/- ",
+                             percent((max_lift_proportion() - min_lift_proportion())/2))
+    
+    # Build the data frame with the values we need to make the bar 
+    # chart with error bars
+    conv_rate_lift_df <- data.frame(x = c(label_actual, label_observed),
+                                    y = c(rate_b_percent() - rate_a_percent(),
+                                          b_observed() - a_observed()),
+                                    ymin = c(NA, min_lift_proportion()),
+                                    ymax = c(NA, max_lift_proportion()))
+    
+    # Build the plot
+    gg <- ggplot(data = conv_rate_lift_df, 
+                 mapping = aes(x = x, y = y, fill = x, ymin = ymin, ymax = ymax)) +
+      geom_bar(stat = "identity") +
+      geom_errorbar(width = .06, color = "gray30") +
+      geom_hline(aes(yintercept = 0)) +
+      scale_fill_manual(values = c("#999999", "#00A2B1")) +
+      scale_y_continuous(expand = c(0,0)) +
+      theme_light() + theme(axis.title = element_blank(),
+                            axis.text.y = element_blank(),
+                            axis.text.x = element_text(size = 16, face="bold", 
+                                                       family = "Nunito",
+                                                       margin = margin(0.3,0,0,0,"cm")),
+                            panel.border = element_blank(),
+                            panel.grid = element_blank(),
+                            legend.position = "nono" )
+    
+    gg
+  }
+  
+})
 
 output$annual_rev_message <- renderUI({
   
@@ -565,6 +594,16 @@ output$annual_rev_message <- renderUI({
                                    "test, no annualized revenue lift would have been calculated,")
       
     } else {
+      
+      # Put the base message
+      base_message <- div(class = "descriptions",
+                          "We can use the traffic volume, test duration, and average order value, along", 
+                          "with our conversion rate lift calculations to see what annualized revenue looks like.", 
+                          em("Keep in mind that these only work if we hold every other revenue factor constant",
+                          "(and we still have a range even with that!)"), "The calculations below are calculated",
+                          "using the", a(href = "https://www.kean.edu/~fosborne/bstat/06d2pop.html",
+                                       "confidence interval for the difference of two population proportions."))
+      
       
       # Calculate the actual annualized revenue lift. The "2*" is because the # of
       # visit(or)s in the simulation are for A and for B -- representing 1/2 of
@@ -634,7 +673,7 @@ output$annual_rev_message <- renderUI({
                            ".", range_result_message, ".")
       
       # Gather the messages together
-      rev_lift_full_message <- list(rev_message_actual, rev_message_observed, range_message)
+      rev_lift_full_message <- list(base_message, rev_message_actual, rev_message_observed, range_message)
     }
   }
   rev_lift_full_message

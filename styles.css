@@ -74,4 +74,13 @@ h3 {
   margin-bottom: 0.5em;
 }
 
+/* Style the headings for the two main assessment types. This will */
+/* have to be changed if the copy changes, unfortunately */
+#section-overview-and-purpose > div.chart-title,
+#section-assessment-1-detecting-the-existence-of-an-effect > div.chart-title,
+#section-assessment-2-estimating-the-size-of-the-effect > div.chart-title {
+  color: #FFFFFF;
+  font-weight: bold;
+  background-color: #0060AF;
+}
 
