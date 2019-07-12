@@ -1,5 +1,6 @@
 /* Remove the title bar */
 .navbar{
+  font-family: "Nunito",helvetica,arial,sans-serf;
   background-color: #000000;
   text-align: center;
 } 
@@ -10,34 +11,36 @@ body {
 
 /* Set the main body/text font */
 p, a {
-    font-family: "adelle-sans",helvetica,arial,sans-serf;
-    font-size: 14px;
+    font-family: "Nunito", helvetica,arial,sans-serf;
+    font-size: 1em;
+    margin: 5px 0 5px 0;
 }
 
 /* Main results output */
 h1 {
-  font-family: "adelle-sans",helvetica,arial,sans-serf;
-  font-size: 24px;
+  font-family: "Nunito",helvetica,arial,sans-serf;
+  font-size: 1.8em;
   font-weight: bold;
   color: #0060AF;
-  text-align: center;
+  text-align: left;
 }
 h2 {
-  font-family: "adelle-sans",helvetica,arial,sans-serf;
-  font-size: 22px;
-  text-align: center;
+  font-family: "Nunito",helvetica,arial,sans-serf;
+  font-size: 1.4em;
+  text-align: left;
   line-height: 0.8;
 }
 
 h3 {
-  font-family: "adelle-sans",helvetica,arial,sans-serf;
-  font-size: 18px;
-  text-align: center;
+  font-family: "Nunito", helvetica,arial,sans-serf;
+  font-size: 1.2em;
+  font-weight: bold;
+  text-align: left;
 }
 
 /* Titles at the top of each panel */
 .chart-title {
-  font-family: "adelle-sans",helvetica,arial,sans-serf;
+  font-family: "Nunito",helvetica,arial,sans-serf;
   font-size: 16px;
   font-weight: bold;
   color: #444;
@@ -58,6 +61,17 @@ h3 {
   background-color: #bdd4f9;
   border: none;
   height: 30px;
+}
+
+/* Button formatting */
+.btn {
+  font-family: "Nunito",helvetica,arial,sans-serf;
+  margin-bottom: 10px;
+}
+
+/* Style for explanatory text */
+.descriptions {
+  margin-bottom: 0.5em;
 }
 
 

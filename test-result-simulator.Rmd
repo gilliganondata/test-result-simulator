@@ -8,8 +8,8 @@ output:
     logo: logo-sm.png
     favicon: favicon.png
     includes:
+      in_header: header.html
       after_body: tracking.html
-      in_header: gtm.js
 runtime: shiny
 ---
 
@@ -21,29 +21,32 @@ library(scales)
 color_a <- "#00A2B1"
 color_b <- "#9A258F"
 
+# Set a seed for reproducibility
+set.seed(112069)
+
 ```
 
 Column {.sidebar data-width=400}
 -------------------------------------
 
-**Configuration**
+### Configure the Simulation
 
 Enter the (_**unknowable in reality!**_) conversion rates for **A** and **B** below (if we _only_ ran **A** or _only_ ran **B** for _all_ traffic for all time and _all other contributing factors were held constant_):
 
 ```{r}
 # Conversion Rate for A
 div(style="text-align: center;",
-    div(style="display:inline-block; padding-right: 5px; font-weight: bold", "A:"),
-    div(style="display:inline-block;", numericInput("rate_a", label = NULL, value = 5.0, width = "100px")),
-    div(style="display:inline-block; padding-left: 5px; font-weight: bold", "%"))
+    div(style="display:inline-block; padding-right: 5px; font-weight: bold; font-family: Nunito", "A:"),
+    div(style="display:inline-block; font-family: Nunito;", numericInput("rate_a", label = NULL, value = 5.0, width = "100px")),
+    div(style="display:inline-block; padding-left: 5px; font-weight: bold; font-family: Nunito", "%"))
 ```
 
 ```{r}
 # Conversion Rate for B
 div(style="text-align: center;",
-    div(style="display:inline-block; padding-right: 5px; font-weight: bold", "B:"),
-    div(style="display:inline-block;", numericInput("rate_b", label = NULL, value = 5.5, width = "100px")),
-    div(style="display:inline-block; padding-left: 5px; font-weight: bold", "%"))
+    div(style="display:inline-block; padding-right: 5px; font-weight: bold; font-family: Nunito", "B:"),
+    div(style="display:inline-block; font-family: Nunito", numericInput("rate_b", label = NULL, value = 5.5, width = "100px")),
+    div(style="display:inline-block; padding-left: 5px; font-weight: bold; font-family: Nunito", "%"))
 ```
 
 How many visit(or)s experienced **each variation** of the test?
@@ -57,7 +60,21 @@ div(style="text-align: center;",
                     min = 1000, max = 100000, value = 25000, step = 1000)))
 ```
 
-**Annualizing Revenue Impact**
+_Click below to simulate a test (a new simulation will automatically run if any of the parameters above are updated)._
+
+```{r}
+div(style="text-align: center;",
+    div(style="display:inline-block",
+        actionButton("run_test", "Run a Simulation!")))
+
+```
+
+
+-----
+
+### Annualize the Revenue Impact
+
+_To experiment with estimating the revenue impact ("estimating the treatment effect"), we need some additional information:_
 
 For how many days did the test run?
 
@@ -80,14 +97,6 @@ div(style="text-align: center;",
                                                   width = "100px")))
 ```
 
-**Click Below to Simulate a Test**
-
-```{r}
-div(style="text-align: center;",
-    div(style="display:inline-block",
-        actionButton("run_test", "Run a Simulation!")))
-
-```
 
 Row
 -----------------------------
@@ -144,9 +153,12 @@ Row {data-height=250}
 
 ### Annualizing Revenue Impact
 
-We can use the traffic volume, test duration, and average order value, along with our conversion rate lift calculations to see what annualized revenue looks like. _**Keep in mind that these only work if we hold every other revenue factor constant (and we still have a range even with that!)**_
-
 ```{r annualization_assess}
+
+div(class = "descriptions",
+    "We can use the traffic volume, test duration, and average order value, along with our conversion",
+    "rate lift calculations to see what annualized revenue looks like.", em("Keep in mind that these only",
+    "work if we hold every other revenue factor constant (and we still have a range even with that!)"))
 
 uiOutput("annual_rev_message")
 
@@ -273,7 +285,7 @@ output$main_plot <- renderPlot({
                                    label = paste("Please set the value of B to",
                                                  "be greater than or equal to the value for A.")),
                  mapping = aes(x = x, y = y, label = label)) +
-      geom_text(size = 10, fontface = "italic", colour = "#0060AF") +
+      geom_text(size = 10, fontface = "italic", family = "Nunito", colour = "#0060AF") +
       theme_light() +
       theme(line = element_blank(),
             text = element_blank(),
@@ -350,11 +362,11 @@ output$main_plot <- renderPlot({
       geom_vline(xintercept = rate_a_percent(), color = "gray30", linetype = "dashed", size = 1) +
       geom_text(aes(x = rate_a_percent() - label_offset, y = max_y * 1.05, 
                     label = paste0("(True!) A: ", format(rate_a_percent() * 100, nsmall = 2), "%")),
-                hjust = 1, size = 5) +
+                hjust = 1, size = 5, family = "Nunito") +
       geom_vline(xintercept = rate_b_percent(), color = "gray30", linetype = "dashed", size = 1) +
       geom_text(aes(x = rate_b_percent() + label_offset, y = max_y * 1.05, 
                     label = paste0("(True!) B: ", format(rate_b_percent() * 100, nsmall = 2), "%")),
-                hjust = 0, size = 5) +
+                hjust = 0, size = 5, family = "Nunito") +
       
       # Clean up the formatting
       scale_y_continuous(expand = c(0,0), limits = c(0, 1.1 * max_y), breaks = NULL) +
@@ -379,7 +391,7 @@ output$main_plot <- renderPlot({
         geom_point(mapping = aes(x=x, y=y, color = name, fill = name), data = observed_df, 
                    size = 4, shape = 23) +
         geom_label(mapping = aes(x=x, y=y + max_y/18, label = paste0(name, format(round(x * 100, 3), nsmall = 3), "%")),
-                   size = 5, data = observed_df) +
+                   size = 5, data = observed_df, family = "Nunito") +
         scale_fill_manual(values = c(color_a, color_b)) +
         scale_colour_manual(values = c(color_a, color_b))
       
@@ -405,7 +417,8 @@ output$summary_message <- renderUI({
   } else {
     
     # Summarize the true and observed lifts
-    summary_message <- div("The true (absolute) lift from", em("A"), "to", em("B"), "is",
+    summary_message <- div(class = "descriptions", 
+                           "The true (absolute) lift from", em("A"), "to", em("B"), "is",
                            strong(percent((input$rate_b - input$rate_a)/100, accuracy = 0.01)), ", but, in the",
                            "real world, that's not a value we know. We just know what the",
                            strong("observed lift"), "from", em("A"), "to", em("B"), "was in our ",
@@ -416,24 +429,25 @@ output$summary_message <- renderUI({
     
     # Check for significance and write out the HTML summarizing it
     if(p_val < 0.05){
-      sig_message <- div("The test", strong("IS significant"), " at a 95% confidence level (p-value =",
+      sig_message <- div(class = "descriptions", "The test", strong("IS significant"), " at a 95% confidence level (p-value =",
                          format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
                          ", which is less than 0.05).", strong("We reject the null hypothesis that",
                                                                "there is no difference between A and B."))
     } else {
-      sig_message <- div("The test is", strong("NOT significant"), " at a 95% confidence level (p-value =",
+      sig_message <- div(class = "descriptions", "The test is", strong("NOT significant"), " at a 95% confidence level (p-value =",
                          format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
                          ", which is less than 0.05).", strong("We CANNOT reject the null hypothesis that",
                                                                "there is no difference between A and B."))
     }
     
     # Explanatory note
-    exp_message <- div(em("The significance test run above was for a one-tailed test with",  
+    exp_message <- div(class = "descriptions", 
+                       em("The significance test run above was for a one-tailed test with",  
                           "a confidence level of 95%. We're not going to get into",
                           "the minutia behind that here."))
     
     # Build up all three statements
-    summary_message <- list(summary_message, br(), sig_message, br(), exp_message)
+    summary_message <- list(summary_message, sig_message, exp_message)
     
     summary_message
   }
@@ -474,6 +488,7 @@ output$conv_rate_lift <- renderPlot({
       theme_light() + theme(axis.title = element_blank(),
                             axis.text.y = element_blank(),
                             axis.text.x = element_text(size = 16, face="bold", 
+                                                       family = "Nunito",
                                                        margin = margin(0.3,0,0,0,"cm")),
                             panel.border = element_blank(),
                             panel.grid = element_blank(),
@@ -523,7 +538,7 @@ output$result_type <- renderPlot({
     # Make the plot
     gg <- ggplot(data = gg_data,
                  mapping = aes(x = x, y = y, label = result)) +
-      geom_text(size = 7) +
+      geom_text(size = 7, family = "Nunito") +
       theme_light() +
       theme(panel.background = element_rect(fill = result_fill),
             line = element_blank(),
@@ -545,7 +560,8 @@ output$annual_rev_message <- renderUI({
     # revenue lift at all.
     if (p_val() >= 0.05){
       
-      rev_lift_full_message <- div("In this case, since we didn't achieve statistical significance with the",
+      rev_lift_full_message <- div(class = "descriptions", 
+                                   "In this case, since we didn't achieve statistical significance with the",
                                    "test, no annualized revenue lift would have been calculated,")
       
     } else {
@@ -571,7 +587,8 @@ output$annual_rev_message <- renderUI({
       max_lift <- 2 * max_lift_proportion * input$num_observations / input$test_duration * 365 * input$aov
       
       # Build the message for the actual annualized revenue
-      rev_message_actual <- div("The ACTUAL annual revenue lift from running", em("B"), "instead of", em("A"), 
+      rev_message_actual <- div(class = "descriptions", 
+                                "The ACTUAL annual revenue lift from running", em("B"), "instead of", em("A"), 
                                 "would be:", strong(paste0("$", format(round(rev_lift_actual, 0), big.mark = ",", 
                                                                        nsmall = 0))),".")
       
@@ -591,7 +608,8 @@ output$annual_rev_message <- renderUI({
       }
       
       # Build the message for the annualized revenue based on the observed result
-      rev_message_observed <- div("The annualized revenue lift based on the", 
+      rev_message_observed <- div(class = "descriptions", 
+                                  "The annualized revenue lift based on the", 
                                   strong("observed result"), "from running", em("B"), 
                                   "instead of", em("A"), "would be:", 
                                   strong(paste0("$", format(round(rev_lift_observed, 0), big.mark = ",", nsmall = 0))),
@@ -607,7 +625,8 @@ output$annual_rev_message <- renderUI({
       
       # Build the message that uses the lift confidence interval to calculate a range
       # annualized revenue.
-      range_message <- div("The expected annual revenue lift", strong("RANGE"), "(a 95% confidence interval)",
+      range_message <- div(class = "descriptions", 
+                           "The expected annual revenue lift", strong("RANGE"), "(a 95% confidence interval)",
                            "from running", em("B"), 
                            "instead of", em("A"), "would be ", 
                            strong(paste0("$", format(round(min_lift,0), big.mark = ",", nsmall = 0), " to $",
@@ -615,8 +634,7 @@ output$annual_rev_message <- renderUI({
                            ".", range_result_message, ".")
       
       # Gather the messages together
-      rev_lift_full_message <- list(rev_message_actual, br(), rev_message_observed, br(),
-                                    range_message)
+      rev_lift_full_message <- list(rev_message_actual, rev_message_observed, range_message)
     }
   }
   rev_lift_full_message

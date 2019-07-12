@@ -7,6 +7,6 @@ library(rsconnect)
 
 # Deploy MDE-based calculator
 deployApp(appFiles = c("test-result-simulator.Rmd","styles.css", "logo-sm.png", 
-                       "favicon.png", "tracking.html", "gtm.js"),
+                       "favicon.png", "tracking.html", "header.html"),
           appName = "test-simulator",
           appTitle = "A/B Test Result Simulator")
