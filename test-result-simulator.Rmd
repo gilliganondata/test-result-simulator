@@ -237,47 +237,25 @@ xmax_b <- reactive({
   prop_test$conf.int[[2]]
 })
 
-# Calculate the 95% confidence interval for the 2-sample difference in proportions
-# https://www.socscistatistics.com/confidenceinterval/default4.aspx.
-# http://sphweb.bumc.bu.edu/otlt/MPH-Modules/BS/BS704_Confidence_Intervals/BS704_Confidence_Intervals5.html.
-# It may be worth switching these to just use conf.int from prop.test() rather than
-# hand-calculating.
-min_lift_proportion <- reactive({
-  min_lift_proportion <- b_observed() - a_observed() - 1.96 *
-    sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
-  
-  cat("Min lift:", min_lift_proportion, "\n")
-  min_lift_proportion
-})
-
-max_lift_proportion <- reactive({
-  max_lift_proportion <- b_observed() - a_observed() + 1.96 *
-    sqrt((a_observed() * (1-a_observed()) + b_observed() * (1- b_observed())) / input$num_observations)
-  
-  cat("Max lift:", max_lift_proportion, "\n")
-  max_lift_proportion
-})
-
 # 2-sample test of proportions. We'll need this for the p-value and for
 # the confidence interval
 prop_test <- reactive({
   
   # Run a 2-sample test of proportions. This is checking the null hypothesis
-  # that B is NOT GREATER THAN A (a one-tailed test)
-  
+  # that B is NOT GREATER THAN A (a one-tailed test) if B > A.
   # If the simulation is set up as an A/A test, we want to use a two-tailed
   # assessment. Otherwise, we'll use one-tailed.
   if(input$rate_a == input$rate_b){
-  prop_test <- prop.test(x = c(b_observed() * input$num_observations, 
-                               a_observed() * input$num_observations), 
-                         n = rep(input$num_observations,2),
-                         alternative = "two.sided")
-
+    prop_test <- prop.test(x = c(b_observed() * input$num_observations, 
+                                 a_observed() * input$num_observations), 
+                           n = rep(input$num_observations,2),
+                           alternative = "two.sided")
+    
   } else {
-  prop_test <- prop.test(x = c(b_observed() * input$num_observations, 
-                               a_observed() * input$num_observations), 
-                         n = rep(input$num_observations,2),
-                         alternative = "greater")
+    prop_test <- prop.test(x = c(b_observed() * input$num_observations, 
+                                 a_observed() * input$num_observations), 
+                           n = rep(input$num_observations,2),
+                           alternative = "greater")
   }
   
   # Write out to the console just for debug reference
@@ -291,6 +269,35 @@ p_val <- reactive({
   
   p_val <- prop_test()$p.value
   
+})
+
+# Calculate the 95% confidence interval for the 2-sample difference in proportions
+# https://www.socscistatistics.com/confidenceinterval/default4.aspx.
+# http://sphweb.bumc.bu.edu/otlt/MPH-Modules/BS/BS704_Confidence_Intervals/BS704_Confidence_Intervals5.html.
+# https://www.dummies.com/education/math/statistics/how-to-estimate-the-difference-between-two-proportions/
+# The actual results returned use prop.test *with* continuity correction, so don't quite
+# match the formulas provided in the links above. And, the calculations are a little different
+# if B > A (one-sided test) vs. if B = A (an A/A/ test -- two-sided)
+min_lift_proportion <- reactive({
+
+  # Get the confidence interval from prop.test. This will run as one-sided
+  # or two-sided as appropriate.
+  conf_int <- prop_test()$conf.int
+
+  # Calculate the min value and return it
+  min_lift_proportion <- conf_int[[1]]
+  min_lift_proportion
+})
+
+max_lift_proportion <- reactive({
+
+  # Get the confidence interval from prop.test. This will run as one-sided
+  # or two-sided as appropriate.
+  conf_int <- prop_test()$conf.int
+
+  # Calculate the max value and return it
+  max_lift_proportion <- 2 * (b_observed() - a_observed()) - conf_int[[1]]
+  max_lift_proportion
 })
 
 ```
@@ -464,11 +471,11 @@ output$summary_message <- renderUI({
     }
     
     # We're using a one-tailed test if B > A and a two-tailed if B == A
-      if(input$rate_a == input$rate_b){
-        alternative <- "two-tailed"
-      } else {
-        alternative <- "one-tailed"
-      }
+    if(input$rate_a == input$rate_b){
+      alternative <- "two-tailed"
+    } else {
+      alternative <- "one-tailed"
+    }
     
     # Explanatory note
     exp_message <- div(class = "descriptions", 
@@ -600,9 +607,9 @@ output$annual_rev_message <- renderUI({
                           "We can use the traffic volume, test duration, and average order value, along", 
                           "with our conversion rate lift calculations to see what annualized revenue looks like.", 
                           em("Keep in mind that these only work if we hold every other revenue factor constant",
-                          "(and we still have a range even with that!)"), "The calculations below are calculated",
+                             "(and we still have a range even with that!)"), "The calculations below are calculated",
                           "using the", a(href = "https://www.kean.edu/~fosborne/bstat/06d2pop.html",
-                                       "confidence interval for the difference of two population proportions."))
+                                         "confidence interval for the difference of two population proportions."))
       
       
       # Calculate the actual annualized revenue lift. The "2*" is because the # of
