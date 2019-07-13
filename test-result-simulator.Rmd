@@ -154,7 +154,7 @@ Row
 
 ### Assessment #2: Estimating the SIZE of the Effect
 
-Can you simply use the observed difference in **A** and **B** to estimate the annualized impact of the winning variation? You can...but that can be dangerous.
+Can you simply use the observed difference in **A** and **B** to estimate the annualized impact of the winning variation? You can...but that can be risky, as it will overstate or understate the "true" value, and it may do so by quite a bit (while also assuming all other factors remain constant, which is never the case).
 
 Row {data-height=250} 
 -----------------------------
