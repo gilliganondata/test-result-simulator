@@ -466,7 +466,7 @@ output$summary_message <- renderUI({
     } else {
       sig_message <- div(class = "descriptions", "The test is", strong("NOT significant"), " at a 95% confidence level (p-value =",
                          format(round(p_val, 4), nsmall = 4, scientific = FALSE), 
-                         ", which is less than 0.05).", strong("We CANNOT reject the null hypothesis that",
+                         ", which is greater than 0.05).", strong("We CANNOT reject the null hypothesis that",
                                                                "there is no difference between A and B."))
     }
     
@@ -677,7 +677,7 @@ output$annual_rev_message <- renderUI({
                            "instead of", em("A"), "would be ", 
                            strong(paste0("$", format(round(min_lift,0), big.mark = ",", nsmall = 0), " to $",
                                          format(round(max_lift,0), big.mark = ",", nsmall = 0))),
-                           ".", range_result_message, ".")
+                           ".", range_result_message)
       
       # Gather the messages together
       rev_lift_full_message <- list(base_message, rev_message_actual, rev_message_observed, range_message)

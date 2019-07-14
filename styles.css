@@ -74,6 +74,11 @@ h3 {
   margin-bottom: 0.5em;
 }
 
+/* Slider input labels */
+.irs-min, .irs-max, .irs-grid-text {
+  font-size: 0.9em;
+}
+
 /* Style the headings for the two main assessment types. This will */
 /* have to be changed if the copy changes, unfortunately */
 #section-overview-and-purpose > div.chart-title,
