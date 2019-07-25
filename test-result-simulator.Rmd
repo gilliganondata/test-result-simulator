@@ -125,7 +125,7 @@ Row
 
 ### Assessment #1: Detecting the EXISTENCE of an Effect
 
-Does the observed difference in **A** and **B** indicate that the two variations are truly different? (This is question that sample size calculators generally focus on: _detecting an effect_ only).
+Does the observed difference in **A** and **B** indicate that the two variations are truly different? (This is the question that sample size calculators generally focus on: _detecting an effect_ only).
 
 
 Row {data-height=260}
