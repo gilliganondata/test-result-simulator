@@ -14,12 +14,13 @@ runtime: shiny
 ---
 
 ```{r setup}
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
 library(scales)
 
 # Specify the base colors for A and B. These get used in various places
 color_a <- "#00A2B1"
-color_b <- "#9A258F"
+color_b <- "#F58220"
 
 # Set a seed for reproducibility
 set.seed(112069)
@@ -36,17 +37,17 @@ Enter the (_**unknowable in reality!**_) conversion rates for **A** and **B** be
 ```{r}
 # Conversion Rate for A
 div(style="text-align: center;",
-    div(style="display:inline-block; padding-right: 5px; font-weight: bold; font-family: Nunito", "A:"),
-    div(style="display:inline-block; font-family: Nunito;", numericInput("rate_a", label = NULL, value = 5.0, width = "100px")),
-    div(style="display:inline-block; padding-left: 5px; font-weight: bold; font-family: Nunito", "%"))
+    div(style="display:inline-block; padding-right: 5px; font-weight: bold; font-family: Lato", "A:"),
+    div(style="display:inline-block; font-family: Lato;", numericInput("rate_a", label = NULL, value = 5.0, width = "100px")),
+    div(style="display:inline-block; padding-left: 5px; font-weight: bold; font-family: Lato", "%"))
 ```
 
 ```{r}
 # Conversion Rate for B
 div(style="text-align: center;",
-    div(style="display:inline-block; padding-right: 5px; font-weight: bold; font-family: Nunito", "B:"),
-    div(style="display:inline-block; font-family: Nunito", numericInput("rate_b", label = NULL, value = 5.5, width = "100px")),
-    div(style="display:inline-block; padding-left: 5px; font-weight: bold; font-family: Nunito", "%"))
+    div(style="display:inline-block; padding-right: 5px; font-weight: bold; font-family: Lato", "B:"),
+    div(style="display:inline-block; font-family: Lato", numericInput("rate_b", label = NULL, value = 5.5, width = "100px")),
+    div(style="display:inline-block; padding-left: 5px; font-weight: bold; font-family: Lato", "%"))
 ```
 
 How many visit(or)s experienced **each variation** of the test?
@@ -315,7 +316,7 @@ output$main_plot <- renderPlot({
                                    label = paste("Please set the value of B to",
                                                  "be greater than or equal to the value for A.")),
                  mapping = aes(x = x, y = y, label = label)) +
-      geom_text(size = 10, fontface = "italic", family = "Nunito", colour = "#0060AF") +
+      geom_text(size = 10, fontface = "italic", family = "Lato", colour = "#0060AF") +
       theme_light() +
       theme(line = element_blank(),
             text = element_blank(),
@@ -392,11 +393,11 @@ output$main_plot <- renderPlot({
       geom_vline(xintercept = rate_a_percent(), color = "gray30", linetype = "dashed", size = 1) +
       geom_text(aes(x = rate_a_percent() - label_offset, y = max_y * 1.05, 
                     label = paste0("(True!) A: ", format(rate_a_percent() * 100, nsmall = 2), "%")),
-                hjust = 1, size = 5, family = "Nunito") +
+                hjust = 1, size = 5, family = "Lato") +
       geom_vline(xintercept = rate_b_percent(), color = "gray30", linetype = "dashed", size = 1) +
       geom_text(aes(x = rate_b_percent() + label_offset, y = max_y * 1.05, 
                     label = paste0("(True!) B: ", format(rate_b_percent() * 100, nsmall = 2), "%")),
-                hjust = 0, size = 5, family = "Nunito") +
+                hjust = 0, size = 5, family = "Lato") +
       
       # Clean up the formatting
       scale_y_continuous(expand = c(0,0), limits = c(0, 1.1 * max_y), breaks = NULL) +
@@ -421,7 +422,7 @@ output$main_plot <- renderPlot({
         geom_point(mapping = aes(x=x, y=y, color = name, fill = name), data = observed_df, 
                    size = 4, shape = 23) +
         geom_label(mapping = aes(x=x, y=y + max_y/18, label = paste0(name, format(round(x * 100, 3), nsmall = 3), "%")),
-                   size = 5, data = observed_df, family = "Nunito") +
+                   size = 5, data = observed_df, family = "Lato") +
         scale_fill_manual(values = c(color_a, color_b)) +
         scale_colour_manual(values = c(color_a, color_b))
       
@@ -529,7 +530,7 @@ output$result_type <- renderPlot({
     # Make the plot
     gg <- ggplot(data = gg_data,
                  mapping = aes(x = x, y = y, label = result)) +
-      geom_text(size = 7, family = "Nunito") +
+      geom_text(size = 7, family = "Lato") +
       theme_light() +
       theme(panel.background = element_rect(fill = result_fill),
             line = element_blank(),
@@ -574,7 +575,7 @@ output$conv_rate_lift <- renderPlot({
       theme_light() + theme(axis.title = element_blank(),
                             axis.text.y = element_blank(),
                             axis.text.x = element_text(size = 16, face="bold", 
-                                                       family = "Nunito",
+                                                       family = "Lato",
                                                        margin = margin(0.3,0,0,0,"cm")),
                             panel.border = element_blank(),
                             panel.grid = element_blank(),

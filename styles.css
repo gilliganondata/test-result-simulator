@@ -1,6 +1,9 @@
+/* Import font
+@import url('https://fonts.googleapis.com/css?family=Lato');
+
 /* Remove the title bar */
 .navbar{
-  font-family: "Nunito",helvetica,arial,sans-serf;
+  font-family: "Lato",helvetica,arial,sans-serf;
   background-color: #000000;
   text-align: center;
 } 
@@ -11,28 +14,28 @@ body {
 
 /* Set the main body/text font */
 p, a {
-    font-family: "Nunito", helvetica,arial,sans-serf;
+    font-family: "Lato", helvetica,arial,sans-serf;
     font-size: 1em;
     margin: 5px 0 5px 0;
 }
 
 /* Main results output */
 h1 {
-  font-family: "Nunito",helvetica,arial,sans-serf;
+  font-family: "Lato",helvetica,arial,sans-serf;
   font-size: 1.8em;
   font-weight: bold;
   color: #0060AF;
   text-align: left;
 }
 h2 {
-  font-family: "Nunito",helvetica,arial,sans-serf;
+  font-family: "Lato",helvetica,arial,sans-serf;
   font-size: 1.4em;
   text-align: left;
   line-height: 0.8;
 }
 
 h3 {
-  font-family: "Nunito", helvetica,arial,sans-serf;
+  font-family: "Lato", helvetica,arial,sans-serf;
   font-size: 1.2em;
   font-weight: bold;
   text-align: left;
@@ -40,7 +43,7 @@ h3 {
 
 /* Titles at the top of each panel */
 .chart-title {
-  font-family: "Nunito",helvetica,arial,sans-serf;
+  font-family: "Lato",helvetica,arial,sans-serf;
   font-size: 16px;
   font-weight: bold;
   color: #444;
@@ -65,7 +68,7 @@ h3 {
 
 /* Button formatting */
 .btn {
-  font-family: "Nunito",helvetica,arial,sans-serf;
+  font-family: "Lato",helvetica,arial,sans-serf;
   margin-bottom: 10px;
 }
 
