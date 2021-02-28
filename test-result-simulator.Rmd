@@ -1,5 +1,5 @@
 ---
-title: "|  A/B Test Result Simulator"
+title: "A/B Test Result Simulator"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
@@ -7,6 +7,12 @@ output:
     vertical_layout: scroll
     logo: logo-sm.png
     favicon: favicon.png
+    navbar: 
+      - { title: "Planning: MDE-Based Calculator", href: "https://sdidev.shinyapps.io/sample-size-calc-with-nav/" }
+      - { title: "Planning: Runtime-Based Calculator", href: "https://sdidev.shinyapps.io/sample-size-calc-runtime-with-nav/" }
+      - { title: "Planning: Sequential Test Calculator", href: "https://sdidev.shinyapps.io/sequential-test-calculator/" }
+      - { title: "Analysis: Test Results Assessment", href: "https://sdidev.shinyapps.io/ABTestAnalysis/" }
+      - { title: "Simulator: A/B Test Results", href: "https://sdidev.shinyapps.io/test-result-simulator/" }
     includes:
       in_header: header.html
       after_body: tracking.html
@@ -17,6 +23,7 @@ runtime: shiny
 library(dplyr)
 library(ggplot2)
 library(scales)
+library(extrafont)
 
 # Specify the base colors for A and B. These get used in various places
 color_a <- "#00A2B1"
@@ -26,6 +33,13 @@ color_b <- "#F58220"
 set.seed(112069)
 
 ```
+
+<script>
+$('.navbar-logo').wrap('<a href="https://www.searchdiscovery.com/how-we-help/services/optimization/" target=_blank>');
+</script>
+
+<div style = "margin-top: 20px">
+</div>
 
 Column {.sidebar data-width=400}
 -------------------------------------
@@ -550,11 +564,11 @@ output$conv_rate_lift <- renderPlot({
     
     # Make the actual lift label
     label_actual <- paste0("Actual Lift:\n",
-                           percent(rate_b_percent() - rate_a_percent()))
+                           percent(rate_b_percent() - rate_a_percent(), accuracy = 0.001))
     label_observed <- paste0("Observed Lift:\n",
-                             percent(b_observed() - a_observed()),
+                             percent(b_observed() - a_observed(), accuracy = 0.001),
                              " +/- ",
-                             percent((max_lift_proportion() - min_lift_proportion())/2))
+                             percent((max_lift_proportion() - min_lift_proportion())/2, accuracy = 0.001))
     
     # Build the data frame with the values we need to make the bar 
     # chart with error bars
